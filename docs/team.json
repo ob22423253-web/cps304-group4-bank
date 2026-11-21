@@ -1,0 +1,10 @@
+{
+  "faculty": "[FACULTY OR SCHOOL NAME]",
+  "lecturer": "[LECTURER NAME]",
+  "members": [
+    ["[NAME 1]", "22223122", "Group Leader"],
+    ["[NAME 2]", "22516009", "Member"],
+    ["[NAME 3]", "22516018", "Member"],
+    ["[NAME 4]", "22423253", "Member"]
+  ]
+}
