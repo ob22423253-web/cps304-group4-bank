@@ -16,7 +16,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOCS = os.path.join(ROOT, "docs")
 NAVY = RGBColor(0x1F, 0x3A, 0x5F)
 MONO = "Courier New"
-FILES = (sorted(glob.glob(os.path.join(ROOT, "src", "*.py"))) + [os.path.join(ROOT, "demo", "run_demo.py")]
+FILES = (sorted(glob.glob(os.path.join(ROOT, "src", "*.py"))) + [os.path.join(ROOT, "src", "web", "index.html"), os.path.join(ROOT, "demo", "run_demo.py")]
          + sorted(glob.glob(os.path.join(ROOT, "tests", "*.py"))))
 
 

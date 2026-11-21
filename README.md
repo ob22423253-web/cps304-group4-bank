@@ -36,7 +36,7 @@ Scenarios: 1 normal cross-branch transfer - 2 insufficient funds - 3 participant
 
 ## Run the tests
 ```
-python -m pytest tests -v        # 33 tests, about 2.5 minutes
+python -m pytest tests -v        # 36 tests, about 3 minutes
 ```
 
 ## Use the system by hand
@@ -44,6 +44,15 @@ python -m pytest tests -v        # 33 tests, about 2.5 minutes
 python -m src.cluster up                          # terminal 1: starts the 7 processes (Ctrl-C stops them)
 python -m src.client --config run/cluster.json    # terminal 2: menu-driven client
 ```
+
+## Web UI (optional, offline, standard library only)
+```
+python -m src.cluster up        # terminal 1: the 7 bank processes
+python -m src.webui             # terminal 2: web gateway; then open http://127.0.0.1:8080
+```
+Log in as alice / teller1 / admin (accounts below). The gateway keeps one real AES-256-GCM encrypted session per login and shows the
+plain action next to the encrypted frames; the browser never talks to a bank server. Real browser screenshots: `python docs/make_ui_screenshots.py`
+(needs `pip install playwright` and Google Chrome or Chromium) writes `screenshots/ui_*.png`.
 
 ## Login accounts (demo credentials only, created by src/seed.py)
 | User | Password | Role | Accounts |
@@ -73,12 +82,13 @@ src/
   branch.py        branch server: 2PC participant, recovery, replication, promotion
   coordinator.py   gateway (login, roles, audit) + 2PC coordinator + failover
   client.py        client library and menu-driven CLI
+  webui.py         local web gateway (http.server) + web/index.html (one page, plain CSS/JS)
   seed.py cluster.py common.py netproxy.py   seeding, process launcher, helpers, MITM proxy used by the demo
-tests/             pytest: test_cluster, test_consistency, test_locks, test_deadlock, test_security, test_fault_tolerance, test_cli
+tests/             pytest: test_cluster, test_consistency, test_locks, test_deadlock, test_security, test_fault_tolerance, test_cli, test_webui
 demo/              run_demo.py and output/*.txt (real scenario output, pytest_summary.txt, run_all.txt)
 docs/              CPS304_Group4_Report.docx/.pdf, CPS304_Group4_SourceCode_Appendix.docx/.pdf, team.json,
-                   build_report.py build_appendix.py make_diagrams.py make_screenshots.py set_team.py, diagrams/*.png, figs/*.png
-screenshots/       dark-terminal PNG renders of every scenario output, the pytest summary and the CLI session
+                   build_report.py build_appendix.py make_diagrams.py make_screenshots.py make_ui_screenshots.py set_team.py, diagrams/*.png, figs/*.png
+screenshots/       dark-terminal PNG renders of every scenario output, the pytest summary and the CLI session; ui_*.png = real browser screenshots of the web UI
 PLAN.md  requirements.txt  README.md  .gitignore
 ```
 Failures are injected with failpoints (`os._exit`), real process kills and a man-in-the-middle proxy; these admin-only hooks exist for the demo.

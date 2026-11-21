@@ -4,3 +4,4 @@ pytest>=8
 python-docx
 matplotlib
 Pillow
+playwright   # only for docs/make_ui_screenshots.py (uses the installed Google Chrome / Chromium)

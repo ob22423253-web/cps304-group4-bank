@@ -70,6 +70,26 @@ def excerpt(lines, cap):
     return [lines[i] for i in keep]
 
 
+def compose_ui():
+    """Crops and combines the real browser screenshots (screenshots/ui_*.png) into the report figures docs/figs/ui1.png, ui2.png."""
+    sd = os.path.join(ROOT, "screenshots")
+    if not os.path.exists(os.path.join(sd, "ui_05_admin_status_after_primary_killed.png")):
+        return
+    ld = lambda n: Image.open(os.path.join(sd, n)).convert("RGB")
+    a = ld("ui_01_login_wrong_password.png").crop((480, 90, 1440, 640))
+    b = ld("ui_04_role_denied_customer_deposit.png").crop((90, 120, 1300, 640))
+    h = 520
+    a, b = [x.resize((int(x.width * h / x.height), h)) for x in (a, b)]
+    im = Image.new("RGB", (a.width + b.width + 24, h), (255, 255, 255))
+    im.paste(a, (0, 0)); im.paste(b, (a.width + 24, 0))
+    im.save(os.path.join(ROOT, "docs", "figs", "ui1.png"))
+    c = ld("ui_02_customer_transfer_committed.png").crop((90, 110, 1830, 640))
+    d = ld("ui_05_admin_status_after_primary_killed.png").crop((90, 110, 1830, 640))
+    im = Image.new("RGB", (c.width, c.height * 2 + 16), (255, 255, 255))
+    im.paste(c, (0, 0)); im.paste(d, (0, c.height + 16))
+    im.save(os.path.join(ROOT, "docs", "figs", "ui2.png"))
+
+
 def main():
     for p in sorted(glob.glob(os.path.join(ROOT, "demo", "output", "[0-9]*.txt"))):
         name = os.path.basename(p)[:-4]
@@ -86,6 +106,7 @@ def main():
             lines += ex(n, cap) + [""]
         render(lines[:-1], os.path.join(ROOT, "docs", "figs", out + ".png"), "demo/output: " + title, cols=104, size=15)
     render(ex("11_cli_session", 16), os.path.join(ROOT, "docs", "figs", "11_cli_short.png"), "demo/output/11_cli_session.txt (excerpt)", cols=104, size=15)
+    compose_ui()
     pt = os.path.join(ROOT, "demo", "output", "pytest_summary.txt")
     if os.path.exists(pt):
         lines = open(pt).read().rstrip("\n").split("\n")
