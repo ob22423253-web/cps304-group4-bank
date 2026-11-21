@@ -38,4 +38,4 @@ tests/test_security.py::test_replayed_frame_rejected PASSED              [ 93%]
 tests/test_security.py::test_wrong_pinned_server_key_rejected PASSED     [ 96%]
 tests/test_security.py::test_wire_capture_has_no_plaintext_and_tamper_and_replay_fail_end_to_end PASSED [100%]
 
-======================== 33 passed in 145.93s (0:02:25) ========================
+======================== 33 passed in 147.46s (0:02:27) ========================

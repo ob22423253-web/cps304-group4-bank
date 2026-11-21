@@ -75,7 +75,7 @@ def main():
         name = os.path.basename(p)[:-4]
         lines = open(p).read().rstrip("\n").split("\n")
         render(lines, os.path.join(ROOT, "screenshots", name + ".png"), "student@utg-bank: python demo/run_demo.py  (%s)" % name)
-        render(excerpt(lines, {"08": 16, "09": 17, "07": 13, "10": 12}.get(name[:2], 26)), os.path.join(ROOT, "docs", "figs", name + ".png"), "demo/output/%s.txt (excerpt)" % name, cols=104, size=15)
+        render(excerpt(lines, {"08": 15, "09": 13, "07": 13, "10": 12}.get(name[:2], 26)), os.path.join(ROOT, "docs", "figs", name + ".png"), "demo/output/%s.txt (excerpt)" % name, cols=104, size=15)
     def ex(name, cap):
         return excerpt(open(os.path.join(ROOT, "demo", "output", name + ".txt")).read().rstrip("\n").split("\n"), cap)
     for out, parts, title in (("c_0102", (("01_normal_transfer", 11), ("02_insufficient_funds", 7)), "scenarios 1 and 2 (excerpts)"),

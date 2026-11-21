@@ -61,7 +61,7 @@ FIGFILE = {
     "crypto": "diagrams/e_encryption_authentication_flow.png", "fail": "diagrams/f_failover_replication_flow.png",
     "s0102": "figs/c_0102.png", "s0506": "figs/c_0506.png", "s0304": "figs/c_0304.png", "s07": "figs/07_concurrent_transfers.png",
     "s08": "figs/08_auth_and_access_control.png", "s09": "figs/09_encryption_tamper_replay.png", "s10": "figs/10_stale_vs_strong_read.png"}
-FIGWIDTH = {"arch": 14, "schema": 13.5, "flow": 11.5, "seq": 11.5, "d2": 10, "crypto": 10.5, "fail": 12.5, "s0102": 13.5, "s0506": 13.5,
+FIGWIDTH = {"arch": 16.2, "schema": 13.5, "flow": 11.5, "seq": 16.2, "d2": 10, "crypto": 16.2, "fail": 12.5, "s0102": 13.5, "s0506": 13.5,
             "s0304": 13, "s07": 12.5, "s08": 12.5, "s09": 12.5, "s10": 11.5}
 CAPTION = {
     "arch": "System architecture: one coordinator and three branches, each with a primary and a hot standby",
@@ -346,8 +346,9 @@ def cover():
         for c in row.cells:
             c.paragraphs[0].paragraph_format.space_after = Pt(0)
             c.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
-    centered("Lecturer: %s" % TEAM["lecturer"], 12.5, False, 4, before=24)
-    centered("", 6, after=16)
+    centered("Lecturer: %s" % TEAM["lecturer"], 12.5, False, 4, before=20)
+    centered("Source code: %s" % TEAM["repo"], 11, False, 4, RGBColor(0x2E, 0x54, 0x8A))
+    centered("", 6, after=10)
     band(NAVYHEX, [("Submission date: 24 November 2026", 13, True, (255, 255, 255))], 1.3)
 
 
@@ -396,7 +397,7 @@ def body():
        "**Task 3, handle deadlock scenarios:** a real deadlock, detection, victim retry and prevention by ordered locking (Section 6).",
        "**Task 4, apply encryption for transactions:** AES-256-GCM, key exchange at login, replay protection, roles, audit (Section 7)."])
     P("All numbers and screenshots come from the automated demo (demo/run_demo.py, %d checks) and the pytest suite (%d tests). "
-      "Short code excerpts are shown in the sections where they prove a requirement; the **full source code is in the separate appendix document (CPS304_Group4_SourceCode_Appendix.pdf) and in the submission zip**." % (D_CHECKS, PT_PASSED))
+      "Short code excerpts are shown where they prove a requirement; the **full source code is in the separate appendix document (CPS304_Group4_SourceCode_Appendix.pdf), in the submission zip and on GitHub: %s**." % (D_CHECKS, PT_PASSED, TEAM["repo"]))
 
     H("2 Requirements-to-implementation table")
     P("%s lists every coursework item, the file that implements it and the evidence that proves it." % T("req"), after=2, keep=True)
@@ -441,11 +442,11 @@ def body():
     P("%s is the commit point: the decision is forced to the log first and only then delivered to the participants." % L("decision"), after=2)
     CODE("prepare", "src/branch.py", "for a, d in net.items():", 8, "Branch.op_prepare: validate, then write the PREPARE record and replicate")
     P("%s shows the participant side: it checks every balance, forces the PREPARE record to its WAL and replicates it before it can vote YES. %s is the message sequence of a transfer in which the Branch B primary is killed after voting YES (scenario 4, Section 8)." % (L("prepare"), F("seq")))
-    FIG("seq")
     H("5.2 ACID properties", 2)
     P("**Atomicity:** all branches apply the transfer or none does (2PC; COMMIT record and balances in one SQLite transaction). **Consistency:** CHECK(balance >= 0), validation at PREPARE and the total-money invariant. "
       "**Isolation:** exclusive account locks from PREPARE to COMMIT/ABORT (strict two-phase locking). **Durability:** PREPARE, COMMIT and the decision are forced to disk before any reply, and a standby holds a copy.")
     P("In scenario 2 (%s, bottom) a transfer of D 99,999.00 from an account with D 10,000.00 is rejected: Branch A votes NO, the coordinator logs ABORT, no balance changes, no lock is left, and Branch B is never contacted." % F("s0102"))
+    FIG("seq")
     H("5.3 Consistency models: strong and eventual", 2)
     P("**Strong consistency** means that once an operation is confirmed, every later read sees it. **Eventual consistency** only promises that replicas converge if no new updates arrive; meanwhile a read may return an old value. "
       "In our system all writes and the default balance read go through the primary and 2PC (strong). A client may ask for an eventual read, which the standby answers.")
@@ -466,11 +467,11 @@ def body():
     H("6.2 Detection and prevention", 2)
     P("**Detection.** The lock manager records which account each waiting transaction waits for; following waiter, owner, owner's own wait gives the wait-for graph (%s). When a request closes a cycle (%s) the **youngest** transaction of the cycle becomes the victim, votes NO, releases its locks and the coordinator retries it after a random back-off. "
       "A **lock timeout** (1.0 to 1.5 s) is the safety net and the only tool for cycles that span two branches." % (F("d2"), L("cycle")))
-    FIG("d2")
     CODE("cycle", "src/locks.py", "path, cur = [start], start", 12, "LockManager._cycle_from: follows the wait-for chain and returns the cycle")
     P("%s walks the chain waiter, owner, owner's wait; if it returns to the starting transaction, that is a deadlock." % L("cycle"), after=2)
     P("**Prevention.** With ordered locking on, the coordinator contacts branches in sorted order and each branch sorts the accounts of a transaction (%s), so every transaction asks for locks in the same global order and a circular wait is impossible." % L("ordering"))
     CODE("ordering", "src/branch.py", "accts = []", 10, "Branch.op_prepare: sorted lock acquisition when ordering is on")
+    FIG("d2")
     H("6.3 Results", 2)
     P("In the demo every lock step is slowed by 0.4 s so that the interleaving is repeatable (%s). **5a:** with detection off and a 1.0 s timeout neither transfer can proceed until the timeout fires, which proves a genuine deadlock. "
       "**5b:** with detection on, Branch A finds the cycle, one victim is aborted and retried, and both transfers commit (the second needed 2 attempts), resolved in %s s without the timeout. "
@@ -514,23 +515,20 @@ def body():
 
     H("9 Testing and results")
     P("The demo runs eleven scenarios on fresh clusters and checks its own results: **%d checks, %d passed, %d failed**. The pytest suite has **%d tests, %d passed, %d failed** (%s)." % (D_CHECKS, D_PASS, D_FAIL, PT_PASSED + PT_FAILED, PT_PASSED, PT_FAILED, PT_TIME), after=2)
-    per = ", ".join("%s %d/%d" % (f[5:-3], v[0], v[0] + v[1]) for f, v in PER_FILE.items())
-    P("Tests passed per file: %s." % per, after=3)
     P("**Money invariant.** Scenario 7 sends %d random transfers (60 normal ones of D 1.00 to D 200.00 between random accounts of all branches and 5 deliberately oversized ones) from 8 parallel sessions (%s). "
       "%s committed and %s aborted for insufficient funds (exactly the 5 oversized ones) in %s s; the total money was D 120,000.00 before and after, on primaries and standbys, no balance became negative and no lock remained. "
       "Scenario 11 drives the menu-driven client with scripted keystrokes (wrong password, balance, transfer of D 75.50, eventual read, history, denied actions); its screenshot, those of all other scenarios and the pytest summary are in the folder screenshots/." % (int(S7_C) + int(S7_A), F("s07"), S7_C, S7_A, S7_T))
     FIG("s07")
 
     H("10 Limitations and future work")
-    B(["**Single machine:** network delays and partitions were only simulated (timeouts, a proxy).",
-       "**Coordinator is a single point of failure:** its log is durable, but while it is down in-doubt participants stay blocked (2PC blocking). A replicated coordinator (Paxos/Raft) or three-phase commit would remove this.",
+    B(["**Coordinator is a single point of failure:** its log is durable, but while it is down in-doubt participants stay blocked (2PC blocking). A replicated coordinator (Paxos/Raft) or three-phase commit would remove this.",
        "**No fencing:** we never fail over on a timeout; a real system needs fencing tokens or a consensus-based leader. Asynchronous replication (lag mode) could lose data; cross-branch deadlocks are broken by timeouts, not by a global wait-for graph.",
-       "**Security scope:** 30,000 PBKDF2 iterations in the demo; server key pinned from a file, not a certificate; no rate limiting; audit log not hash-chained; the fault-injection commands would be removed in production."])
+       "**Single machine and security scope:** network partitions were only simulated; 30,000 PBKDF2 iterations in the demo; server key pinned from a file, not a certificate; no rate limiting; audit log not hash-chained; the fault-injection commands would be removed in production."])
 
     H("11 Conclusion")
     P("We built a distributed banking system with three bank servers and their hot standbys, coordinated by a transaction coordinator, and proved each coursework task by running it. "
-      "Two-phase commit with a write-ahead log kept all %d concurrent transfers consistent and the total money constant. Deadlocks were produced for real, detected with a wait-for graph, resolved by a victim abort and prevented by ordered locking; "
-      "the Coffman conditions explain which method breaks which condition. Every message is protected with AES-256-GCM and replay protection, and users by salted PBKDF2 hashes, roles and an audit log. "
+      "Two-phase commit with a write-ahead log kept all %d concurrent transfers consistent and the total money constant. Deadlocks were produced for real, detected with a wait-for graph, resolved by a victim abort and prevented by ordered locking. "
+      "Every message is protected with AES-256-GCM and replay protection, and users by salted PBKDF2 hashes, roles and an audit log. "
       "A killed primary was replaced by its standby in the middle of a transaction and a crashed participant recovered from its log, without losing or creating money. "
       "The complete source code is in the separate appendix (CPS304_Group4_SourceCode_Appendix.pdf) and in the submission zip." % (int(S7_C) + int(S7_A)))
 

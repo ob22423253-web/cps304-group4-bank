@@ -10,7 +10,7 @@ Submission date: 24 November 2026 - Lecturer: [LECTURER NAME] - Faculty/School: 
 | 22516018 | [NAME 3] | Member |
 | 22423253 | [NAME 4] | Member |
 
-Repository: REPO_URL
+Repository: https://github.com/ob22423253-web/cps304-group4-bank
 
 Three branch servers (A, B, C), each a separate OS process with its own SQLite database and a hot-standby backup, coordinated by a
 transaction coordinator that runs two-phase commit. Per-account locks with deadlock detection and prevention, AES-256-GCM encrypted and
@@ -85,6 +85,6 @@ Failures are injected with failpoints (`os._exit`), real process kills and a man
 
 ## Publish to GitHub (not done automatically)
 ```
-git remote add origin REPO_URL
+git remote add origin https://github.com/ob22423253-web/cps304-group4-bank
 git push -u origin main
 ```

@@ -23,12 +23,16 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NODES = ["A1", "A2", "B1", "B2", "C1", "C2"]
 
 
-def free_port():
-    s = socket.socket()
-    s.bind((HOST, 0))
-    p = s.getsockname()[1]
-    s.close()
-    return p
+def free_ports(n):
+    """n DISTINCT free ports: all sockets stay open until every port is known (no accidental reuse)."""
+    socks = [socket.socket() for _ in range(n)]
+    try:
+        for s in socks:
+            s.bind((HOST, 0))
+        return [s.getsockname()[1] for s in socks]
+    finally:
+        for s in socks:
+            s.close()
 
 
 class Cluster:
@@ -50,10 +54,11 @@ class Cluster:
         from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
         with open(os.path.join(self.dir, "coordinator_identity.key"), "w") as f:
             f.write(priv.private_bytes(Encoding.Raw, PrivateFormat.Raw, NoEncryption()).hex())
+        ports = iter(free_ports(8))
         self.cfg = {
             "cluster_key": os.urandom(32).hex(), "data_dir": self.dir, "server_pub": pub.hex(),
-            "coordinator": {"client_port": free_port(), "internal_port": free_port()},
-            "nodes": {b: {b + "1": free_port(), b + "2": free_port()} for b in "ABC"},
+            "coordinator": {"client_port": next(ports), "internal_port": next(ports)},
+            "nodes": {b: {b + "1": next(ports), b + "2": next(ports)} for b in "ABC"},
             "rpc_timeout": self.rpc_timeout, "lock_timeout": self.lock_timeout, "seed": 304,
         }
         with open(self.cfg_path, "w") as f:

@@ -1,6 +1,7 @@
 """Builds docs/CPS304_Group4_SourceCode_Appendix.docx and .pdf: the FULL source of src/, demo/run_demo.py and tests/,
 one heading per file, monospace, line numbers, page numbers."""
 import glob
+import json
 import os
 import re
 import subprocess
@@ -79,6 +80,9 @@ def build():
     r = p.add_run("Fault-Tolerant Distributed Banking System for the UTG Microfinance Unit - complete source code"); r.font.size = Pt(11)
     border(p, "bottom", "1F3A5F", 8)
     p.paragraph_format.space_after = Pt(4)
+    p = doc.add_paragraph()
+    r = p.add_run("Repository: " + json.load(open(os.path.join(DOCS, "team.json")))["repo"]); r.font.size = Pt(10); r.font.color.rgb = RGBColor(0x2E, 0x54, 0x8A)
+    p.paragraph_format.space_after = Pt(3)
     total = 0
     idx = []
     for f in FILES:
