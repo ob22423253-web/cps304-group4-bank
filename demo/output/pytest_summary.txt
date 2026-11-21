@@ -1,5 +1,6 @@
 ============================= test session starts ==============================
 platform linux -- Python 3.12.3, pytest-8.3.3, pluggy-1.6.0 -- /usr/bin/python3
+cachedir: .pytest_cache
 rootdir: /home/ousman/cps304_group4_bank
 plugins: anyio-4.14.0
 collecting ... collected 36 items
@@ -41,4 +42,4 @@ tests/test_webui.py::test_web_login_ok_and_encrypted_wire_info PASSED    [ 94%]
 tests/test_webui.py::test_web_wrong_password PASSED                      [ 97%]
 tests/test_webui.py::test_web_role_denied_and_forged_request_rejected PASSED [100%]
 
-======================== 36 passed in 159.90s (0:02:39) ========================
+======================== 36 passed in 156.81s (0:02:36) ========================

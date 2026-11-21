@@ -19,7 +19,7 @@ DOCS = os.path.join(ROOT, "docs")
 DIAG, FIGS, OUTD = os.path.join(DOCS, "diagrams"), os.path.join(DOCS, "figs"), os.path.join(ROOT, "demo", "output")
 FONT, MONO = "Calibri", "Courier New"
 NAVY, NAVYHEX = RGBColor(0x1F, 0x3A, 0x5F), "1F3A5F"
-BODY_PT = 9.5
+BODY_PT = 10.5
 TEAM = json.load(open(os.path.join(DOCS, "team.json")))
 
 
@@ -45,7 +45,7 @@ D_CHECKS, D_PASS, D_FAIL = (int(x) for x in re.search(r"DEMO SUMMARY: (\d+) chec
 S7_T, S7_C, S7_A = re.search(r"finished in ([\d.]+) s -> committed: (\d+), aborted: (\d+)", rd("07_concurrent_transfers.txt")).groups()
 S5B = grab("05_deadlock_detected.txt", r"resolved in ([\d.]+) s")
 
-FIGORDER = ["arch", "schema", "flow", "seq", "d2", "s0506", "crypto", "s09", "ui2", "s0304", "fail", "ui1", "ui3"]
+FIGORDER = ["arch", "s0102", "schema", "flow", "seq", "d2", "s0506", "ui2", "crypto", "s09", "s0304", "fail", "ui1", "ui3"]
 FIGNO = {k: i + 1 for i, k in enumerate(FIGORDER)}
 TABORDER = ["req", "coffman"]
 TABNO = {k: i + 1 for i, k in enumerate(TABORDER)}
@@ -60,8 +60,8 @@ FIGFILE = {
     "seq": "diagrams/c_2pc_sequence_crash.png", "d2": "diagrams/d2_deadlock_detection_flowchart.png",
     "crypto": "diagrams/e_encryption_authentication_flow.png", "fail": "diagrams/f_failover_replication_flow.png",
     "s0102": "figs/c_0102.png", "s0506": "figs/c_0506.png", "s0304": "figs/c_0304.png", "ui1": "figs/ui1.png", "ui2": "figs/ui2.png", "ui3": "figs/ui3.png", "s09": "figs/09_encryption_tamper_replay.png", "s10": "figs/10_stale_vs_strong_read.png"}
-FIGWIDTH = {"arch": 16.2, "schema": 13.5, "flow": 11.5, "seq": 16.2, "d2": 10, "crypto": 16.2, "fail": 12.5, "s0102": 12.5, "s0506": 12.5,
-            "s0304": 12, "ui1": 16.2, "ui2": 16.2, "ui3": 16.2, "s09": 12, "s10": 11.5}
+FIGWIDTH = {"arch": 16.2, "schema": 11.0, "flow": 9.5, "seq": 14.5, "d2": 8.5, "crypto": 14.5, "fail": 9.5, "s0102": 16.0, "s0506": 16.0,
+            "s0304": 16.0, "ui1": 14.6, "ui2": 14.6, "ui3": 14.6, "s09": 16.0, "s10": 11.5}
 CAPTION = {
     "arch": "System architecture: one coordinator and three branches, each with a primary and a hot standby",
     "s0102": "Scenario 1 (normal transfer, 2PC commit) and scenario 2 (insufficient funds, abort): real output, shortened",
@@ -422,11 +422,12 @@ def body():
     FIG("arch")
     H("4 Server simulation and replication")
     P("The launcher (src/cluster.py) creates the databases, picks free ports and starts seven separate processes. The tests check that there are seven process ids, that every node has its own database file and that the account partitions do not overlap. "
-      "Scenario 1 (demo/output/01_normal_transfer.txt) shows one transfer: coordinator and branch log lines, the write-ahead logs (PREPARE, COMMIT) and equal balances on primaries and standbys.")
+      "Scenario 1 (demo/output/01_normal_transfer.txt, %s) shows one transfer: coordinator votes and decision, the write-ahead logs (PREPARE, COMMIT) and equal balances on primaries and standbys." % F("s0102"))
     P("**Replication.** Every change is first written to the write-ahead log (WAL, Section 5.1). The primary then sends all records that the standby has not acknowledged. The standby accepts a record only if its id is the last id plus one; otherwise the primary re-sends the missing records. "
       "Replication is synchronous by default, so a standby always holds every prepared and committed transaction; if the standby is down the primary keeps serving and the standby catches up later (scenario 4). "
       "%s shows the schema; the accounts table has a CHECK (balance >= 0) as a last defence." % F("schema"))
 
+    FIG("s0102")
     H("5 Transaction consistency")
     H("5.1 Two-phase commit and the write-ahead log", 2)
     P("Every deposit, withdrawal and transfer is a distributed transaction run by the coordinator with two-phase commit (%s). A cross-branch transfer has two participants; a deposit has one." % F("flow"))
@@ -434,16 +435,16 @@ def body():
        "**Decision:** if all votes are YES the coordinator writes COMMIT to its durable decision log, otherwise ABORT. This is the commit point and it happens before any phase-2 message (%s)." % L("decision"),
        "**Phase 2:** COMMIT applies the balances, history rows and COMMIT record in one SQLite transaction and releases the locks. All phase-2 messages are idempotent, so they can be repeated.",
        "**Recovery:** an undeliverable decision stays pending and is re-sent every 0.5 s. A restarted participant finds PREPARE records without outcome (in doubt), re-takes their locks and asks the coordinator (unknown transaction: presumed abort)."])
-    FIG("schema")
-    FIG("flow")
     CODE("decision", "src/coordinator.py", 'decision = "ABORT" if reason else "COMMIT"', 6, "Coordinator.attempt: the decision is logged before phase 2")
     P("%s is the commit point: the decision is forced to the log first and only then delivered to the participants." % L("decision"), after=2)
     CODE("prepare", "src/branch.py", "for a, d in net.items():", 8, "Branch.op_prepare: validate, then write the PREPARE record and replicate")
     P("%s shows the participant side: it checks every balance, forces the PREPARE record to its WAL and replicates it before it can vote YES. %s is the message sequence of a transfer in which the Branch B primary is killed after voting YES (scenario 4, Section 8)." % (L("prepare"), F("seq")))
+    FIG("schema")
+    FIG("flow")
     H("5.2 ACID properties", 2)
     P("**Atomicity:** all branches apply the transfer or none does (2PC; COMMIT record and balances in one SQLite transaction). **Consistency:** CHECK(balance >= 0), validation at PREPARE and the total-money invariant. "
       "**Isolation:** exclusive account locks from PREPARE to COMMIT/ABORT (strict two-phase locking). **Durability:** PREPARE, COMMIT and the decision are forced to disk before any reply, and a standby holds a copy.")
-    P("In scenario 2 (demo/output/02_insufficient_funds.txt) a transfer of D 99,999.00 from an account with D 10,000.00 is rejected: Branch A votes NO, the coordinator logs ABORT, no balance changes, no lock is left, and Branch B is never contacted.")
+    P("In scenario 2 (demo/output/02_insufficient_funds.txt) a transfer of D 99,999.00 from an account with D 10,000.00 is rejected: Branch A votes NO, the coordinator logs ABORT, no balance changes, no lock is left, and Branch B is never contacted (%s)." % F("s0102"))
     FIG("seq")
     H("5.3 Consistency models: strong and eventual", 2)
     P("**Strong consistency** means that once an operation is confirmed, every later read sees it. **Eventual consistency** only promises that replicas converge if no new updates arrive; meanwhile a read may return an old value. "
@@ -483,6 +484,7 @@ def body():
     P("Three roles exist. A **customer** may read the balance and history of, and transfer from, his or her own accounts only; a **teller** may read all accounts, transfer between any accounts and deposit or withdraw cash; the **admin** may open the admin view and change the configuration but may not move money. Every request passes the check in %s, and every decision, allowed or denied, is audited." % L("rbac"), after=2)
     CODE("rbac", "src/coordinator.py", "if op not in PERMS[role]:", 10, "Coordinator.dispatch: role check and account ownership check")
     P("Scenario 8 (demo/output/08_auth_and_access_control.txt) shows the stored salted hashes, a wrong password, an unknown user, a request before login and six forbidden actions that were all denied (for example a customer reading another customer's balance, a teller opening the admin view, the admin moving money); the permitted actions succeeded in the same run. In the web UI (%s) the same denial appears as a \'Role denied\' message." % F("ui2"))
+    FIG("ui2")
     H("7.2 Encryption, replay protection and audit", 2)
     P("Each connection starts with the handshake of %s: both sides exchange fresh X25519 public keys, derive two 256-bit keys with HKDF-SHA256 (one per direction) and from then on every message is one **AES-256-GCM** frame. "
       "The server signs the transcript with an Ed25519 key that the client has pinned, so a fake server is rejected; cluster nodes authenticate each other with an HMAC proof. The password travels only inside the encrypted channel." % F("crypto"))
@@ -491,7 +493,6 @@ def body():
       "and the same request sent twice gives different ciphertext. One flipped bit in a transfer makes the server drop the connection and no money moves; a valid transfer frame delivered twice is executed exactly once." % (L("gcm"), F("s09")))
     FIG("crypto")
     FIG("s09")
-    FIG("ui2")
     P("**Audit log.** The coordinator writes one audit row for every login, every operation (also denied ones) and every security event (tamper, replay, failover); scenarios 8 and 9 print them.")
 
     H("8 Fault tolerance and recovery")
