@@ -71,23 +71,20 @@ def excerpt(lines, cap):
 
 
 def compose_ui():
-    """Crops and combines the real browser screenshots (screenshots/ui_*.png) into the report figures docs/figs/ui1.png, ui2.png."""
+    """Report figures from the real browser screenshots (screenshots/ui_*.png): only empty page area at the bottom is trimmed."""
     sd = os.path.join(ROOT, "screenshots")
     if not os.path.exists(os.path.join(sd, "ui_05_admin_status_after_primary_killed.png")):
         return
+    import numpy as np
+
+    def trim(im, pad=24):
+        a = np.array(im.convert("RGB")).astype(int)
+        rows = np.where(np.abs(a - np.array([242, 245, 249])).sum(axis=2).max(axis=1) > 12)[0]
+        return im.crop((0, 0, im.width, min(im.height, rows.max() + pad)))
     ld = lambda n: Image.open(os.path.join(sd, n)).convert("RGB")
-    a = ld("ui_01_login_wrong_password.png").crop((480, 90, 1440, 640))
-    b = ld("ui_04_role_denied_customer_deposit.png").crop((90, 120, 1300, 640))
-    h = 520
-    a, b = [x.resize((int(x.width * h / x.height), h)) for x in (a, b)]
-    im = Image.new("RGB", (a.width + b.width + 24, h), (255, 255, 255))
-    im.paste(a, (0, 0)); im.paste(b, (a.width + 24, 0))
-    im.save(os.path.join(ROOT, "docs", "figs", "ui1.png"))
-    c = ld("ui_02_customer_transfer_committed.png").crop((90, 110, 1830, 640))
-    d = ld("ui_05_admin_status_after_primary_killed.png").crop((90, 110, 1830, 640))
-    im = Image.new("RGB", (c.width, c.height * 2 + 16), (255, 255, 255))
-    im.paste(c, (0, 0)); im.paste(d, (0, c.height + 16))
-    im.save(os.path.join(ROOT, "docs", "figs", "ui2.png"))
+    ld("ui_02_customer_transfer_committed.png").crop((0, 0, 2200, 1350)).save(os.path.join(ROOT, "docs", "figs", "ui1.png"))
+    trim(ld("ui_04_role_denied_customer_deposit.png")).save(os.path.join(ROOT, "docs", "figs", "ui2.png"))
+    trim(ld("ui_05_admin_status_after_primary_killed.png")).save(os.path.join(ROOT, "docs", "figs", "ui3.png"))
 
 
 def main():
@@ -95,12 +92,12 @@ def main():
         name = os.path.basename(p)[:-4]
         lines = open(p).read().rstrip("\n").split("\n")
         render(lines, os.path.join(ROOT, "screenshots", name + ".png"), "student@utg-bank: python demo/run_demo.py  (%s)" % name)
-        render(excerpt(lines, {"08": 15, "09": 13, "07": 13, "10": 12}.get(name[:2], 26)), os.path.join(ROOT, "docs", "figs", name + ".png"), "demo/output/%s.txt (excerpt)" % name, cols=104, size=15)
+        render(excerpt(lines, {"08": 15, "09": 9, "07": 13, "10": 12}.get(name[:2], 26)), os.path.join(ROOT, "docs", "figs", name + ".png"), "demo/output/%s.txt (excerpt)" % name, cols=104, size=15)
     def ex(name, cap):
         return excerpt(open(os.path.join(ROOT, "demo", "output", name + ".txt")).read().rstrip("\n").split("\n"), cap)
-    for out, parts, title in (("c_0102", (("01_normal_transfer", 11), ("02_insufficient_funds", 7)), "scenarios 1 and 2 (excerpts)"),
-                              ("c_0506", (("05_deadlock_detected", 13), ("06_deadlock_prevented", 7)), "scenarios 5 and 6 (excerpts)"),
-                              ("c_0304", (("03_participant_crash_recovery", 12), ("04_primary_failover", 12)), "scenarios 3 and 4 (excerpts)")):
+    for out, parts, title in (("c_0102", (("01_normal_transfer", 8), ("02_insufficient_funds", 5)), "scenarios 1 and 2 (excerpts)"),
+                              ("c_0506", (("05_deadlock_detected", 9), ("06_deadlock_prevented", 5)), "scenarios 5 and 6 (excerpts)"),
+                              ("c_0304", (("03_participant_crash_recovery", 8), ("04_primary_failover", 8)), "scenarios 3 and 4 (excerpts)")):
         lines = []
         for n, cap in parts:
             lines += ex(n, cap) + [""]

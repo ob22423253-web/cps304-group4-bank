@@ -3,29 +3,29 @@
 <title>UTG Microfinance - Secure Banking</title>
 <style>
 :root{--navy:#1f3a5f;--blue:#2e6bb0;--bg:#f2f5f9;--card:#fff;--line:#dbe2ec;--ok:#1e7b34;--okbg:#e6f4ea;--err:#b3301f;--errbg:#fdecea;--warn:#8a5a00;--warnbg:#fff4d6;--mut:#5b6b80}
-*{box-sizing:border-box}body{margin:0;font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:#1c2733}
+*{box-sizing:border-box}body{margin:0;font:19px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:#1c2733}
 header{background:var(--navy);color:#fff;padding:12px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-header h1{font-size:18px;margin:0;font-weight:650;flex:1}header small{opacity:.8;font-weight:400;display:block;font-size:12px}
-.badge{padding:3px 10px;border-radius:99px;font-size:12px;font-weight:600;background:#c9a227;color:#222}
+header h1{font-size:23px;margin:0;font-weight:650;flex:1}header small{opacity:.8;font-weight:400;display:block;font-size:14px}
+.badge{padding:3px 10px;border-radius:99px;font-size:15px;font-weight:600;background:#c9a227;color:#222}
 button{font:inherit;cursor:pointer;border:0;border-radius:8px;padding:8px 14px;background:var(--blue);color:#fff;font-weight:600}
 button.sec{background:#e6ebf2;color:var(--navy)}button.warn{background:#a35a00}button:disabled{opacity:.5}
 input,select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:8px;width:100%;background:#fff}
-label{font-size:12px;color:var(--mut);font-weight:600;display:block;margin:8px 0 3px}
-main{max-width:1180px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:1fr 340px;gap:16px}
+label{font-size:14.5px;color:var(--mut);font-weight:600;display:block;margin:8px 0 3px}
+main{max-width:1280px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:1fr 390px;gap:16px}
 @media(max-width:900px){main{grid-template-columns:1fr}}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:14px}
-.card h2{margin:0 0 8px;font-size:16px;color:var(--navy)}
+.card h2{margin:0 0 8px;font-size:21px;color:var(--navy)}
 .tabs{display:flex;gap:6px;margin-bottom:12px}.tabs button{background:#e6ebf2;color:var(--navy)}.tabs button.on{background:var(--navy);color:#fff}
-.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;align-items:end}
 .msg{padding:10px 14px;border-radius:10px;margin-bottom:12px;font-weight:550;display:none}
 .msg.ok{display:block;background:var(--okbg);color:var(--ok)}.msg.err{display:block;background:var(--errbg);color:var(--err)}.msg.deny{display:block;background:var(--warnbg);color:var(--warn)}
-.big{font-size:30px;font-weight:700;color:var(--navy);margin:8px 0 0}
-table{border-collapse:collapse;width:100%;font-size:13.5px}th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--mut);font-size:12px;text-transform:uppercase}
+.big{font-size:42px;font-weight:700;color:var(--navy);margin:8px 0 0}
+table{border-collapse:collapse;width:100%;font-size:17px}th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--mut);font-size:14px;text-transform:uppercase}
 .up{color:var(--ok);font-weight:700}.down{color:var(--err);font-weight:700}
-.wire pre{margin:4px 0 10px;background:#101820;color:#9fe3a7;border-radius:8px;padding:8px 10px;font:11.5px/1.45 ui-monospace,Consolas,monospace;white-space:pre-wrap;word-break:break-all}
-.wire pre.plain{color:#ffd666}.wire .cap{font-size:12px;color:var(--mut);font-weight:600}
-#login{max-width:380px;margin:60px auto}.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.chips button{padding:4px 10px;font-size:12px}
-.hidden{display:none}.mut{color:var(--mut);font-size:13px}
+.wire pre{margin:4px 0 10px;background:#101820;color:#9fe3a7;border-radius:8px;padding:8px 10px;font:16.5px/1.4 ui-monospace,Consolas,monospace;white-space:pre-wrap;word-break:break-all}
+.wire pre.plain{color:#ffd666}.wire .cap{font-size:15px;color:var(--mut);font-weight:600}
+#login{max-width:430px;margin:60px auto}.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.chips button{padding:4px 10px;font-size:15px}
+.hidden{display:none}.mut{color:var(--mut);font-size:15.5px}
 </style></head><body>
 <header><h1>UTG Microfinance Unit - Secure Banking<small>Encrypted session (X25519 + AES-256-GCM) between this gateway and the bank coordinator</small></h1>
 <span id="who" class="hidden"></span><span id="role" class="badge hidden"></span><button id="logout" class="sec hidden">Log out</button></header>
@@ -93,7 +93,7 @@ async function showBal(quiet){const a=acct();const r=await act({op:"BALANCE",acc
  if(r&&r.ok){$("bal").textContent=D(r.balance);$("balInfo").textContent=`${a} - ${r.consistency} read from node ${r.node} (${r.role}), log position ${r.wal_id}`}else{$("bal").textContent="-";$("balInfo").textContent=""}}
 $("bBal").onclick=()=>showBal(false);
 $("bTr").onclick=async()=>{const r=await act({op:"TRANSFER",src:from(),dst:$("to").value,amount:$("amt").value},r=>`Transfer ${r.status} (transaction ${r.txid}, ${r.attempts} attempt${r.attempts>1?"s":""}).`);
- if(r&&r.ok&&acct()){const w=$("wPlain").textContent,q=$("wReq").textContent,p=$("wRep").textContent;await showBal(true);await loadHist(true);$("wPlain").textContent=w;$("wReq").textContent=q;$("wRep").textContent=p}};
+ if(r&&r.ok&&acct()){const w=$("wPlain").textContent,q=$("wReq").textContent,p=$("wRep").textContent;await showBal(true);if($("hist").rows.length)await loadHist(true);$("wPlain").textContent=w;$("wReq").textContent=q;$("wRep").textContent=p}};
 async function loadHist(quiet){const r=await act({op:"HISTORY",acct:acct()},()=>"History loaded",quiet);if(!r||!r.ok)return;
  $("hist").innerHTML="<tr><th>Tx</th><th>Change</th><th>Balance after</th><th>Memo</th></tr>"+r.history.map(h=>`<tr><td>${h.txid}</td><td>${D(h.delta)}</td><td>${D(h.balance_after)}</td><td>${h.memo}</td></tr>`).join("")}
 $("bHist").onclick=()=>loadHist(false);

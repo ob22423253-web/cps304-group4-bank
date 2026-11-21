@@ -19,7 +19,7 @@ DOCS = os.path.join(ROOT, "docs")
 DIAG, FIGS, OUTD = os.path.join(DOCS, "diagrams"), os.path.join(DOCS, "figs"), os.path.join(ROOT, "demo", "output")
 FONT, MONO = "Calibri", "Courier New"
 NAVY, NAVYHEX = RGBColor(0x1F, 0x3A, 0x5F), "1F3A5F"
-BODY_PT = 10
+BODY_PT = 9.5
 TEAM = json.load(open(os.path.join(DOCS, "team.json")))
 
 
@@ -45,9 +45,9 @@ D_CHECKS, D_PASS, D_FAIL = (int(x) for x in re.search(r"DEMO SUMMARY: (\d+) chec
 S7_T, S7_C, S7_A = re.search(r"finished in ([\d.]+) s -> committed: (\d+), aborted: (\d+)", rd("07_concurrent_transfers.txt")).groups()
 S5B = grab("05_deadlock_detected.txt", r"resolved in ([\d.]+) s")
 
-FIGORDER = ["arch", "s0102", "schema", "flow", "seq", "s10", "d2", "s0506", "crypto", "ui1", "s09", "s0304", "fail", "ui2"]
+FIGORDER = ["arch", "schema", "flow", "seq", "d2", "s0506", "crypto", "s09", "ui2", "s0304", "fail", "ui1", "ui3"]
 FIGNO = {k: i + 1 for i, k in enumerate(FIGORDER)}
-TABORDER = ["req", "coffman", "fail"]
+TABORDER = ["req", "coffman"]
 TABNO = {k: i + 1 for i, k in enumerate(TABORDER)}
 LISTORDER = ["decision", "prepare", "ordering", "cycle", "gcm", "password", "rbac", "failover"]
 LISTNO = {k: i + 1 for i, k in enumerate(LISTORDER)}
@@ -59,9 +59,9 @@ FIGFILE = {
     "arch": "diagrams/a_architecture.png", "schema": "diagrams/g_database_schema.png", "flow": "diagrams/b_2pc_flowchart.png",
     "seq": "diagrams/c_2pc_sequence_crash.png", "d2": "diagrams/d2_deadlock_detection_flowchart.png",
     "crypto": "diagrams/e_encryption_authentication_flow.png", "fail": "diagrams/f_failover_replication_flow.png",
-    "s0102": "figs/c_0102.png", "s0506": "figs/c_0506.png", "s0304": "figs/c_0304.png", "ui1": "figs/ui1.png", "ui2": "figs/ui2.png", "s09": "figs/09_encryption_tamper_replay.png", "s10": "figs/10_stale_vs_strong_read.png"}
-FIGWIDTH = {"arch": 16.2, "schema": 13.5, "flow": 11.5, "seq": 16.2, "d2": 10, "crypto": 16.2, "fail": 12.5, "s0102": 13.5, "s0506": 13.5,
-            "s0304": 13, "ui1": 15.5, "ui2": 14, "s09": 12.5, "s10": 11.5}
+    "s0102": "figs/c_0102.png", "s0506": "figs/c_0506.png", "s0304": "figs/c_0304.png", "ui1": "figs/ui1.png", "ui2": "figs/ui2.png", "ui3": "figs/ui3.png", "s09": "figs/09_encryption_tamper_replay.png", "s10": "figs/10_stale_vs_strong_read.png"}
+FIGWIDTH = {"arch": 16.2, "schema": 13.5, "flow": 11.5, "seq": 16.2, "d2": 10, "crypto": 16.2, "fail": 12.5, "s0102": 12.5, "s0506": 12.5,
+            "s0304": 12, "ui1": 16.2, "ui2": 16.2, "ui3": 16.2, "s09": 12, "s10": 11.5}
 CAPTION = {
     "arch": "System architecture: one coordinator and three branches, each with a primary and a hot standby",
     "s0102": "Scenario 1 (normal transfer, 2PC commit) and scenario 2 (insufficient funds, abort): real output, shortened",
@@ -71,11 +71,12 @@ CAPTION = {
     "d2": "Deadlock detection (wait-for graph, victim, timeout) and prevention (ordered locking)",
     "s0506": "Scenarios 5 and 6: real deadlock detected and resolved, and the same transfers with ordered locking",
     "crypto": "Login handshake, session keys and AES-256-GCM frame format",
-    "ui1": "Web UI (real browser screenshots): wrong password at login, and 'Role denied' when a customer tries a teller deposit",
+    "ui2": "Web UI (real browser): \'Role denied\' when a customer tries a teller deposit; the panel on the right shows the plain action and the real encrypted frames",
+    "ui1": "Web UI (real browser), customer view: transfer committed, with the plain action and the real AES-256-GCM frames on the right",
     "s09": "Scenario 9: captured ciphertext, tampered and replayed messages rejected",
     "fail": "Replication (WAL shipping) and failover flow",
     "s0304": "Scenarios 3 and 4: participant crash and WAL recovery, primary killed and failover",
-    "ui2": "Web UI: committed transfer with the encrypted frames shown on the right, and the admin status after the Branch B primary was killed (B1 DOWN, B2 promoted)"}
+    "ui3": "Web UI (real browser), admin view after the Branch B primary was killed: B1 DOWN, B2 promoted, failover in the audit log"}
 
 doc = None
 HEADINGS = []
@@ -154,7 +155,7 @@ def fld(run, instr):
 def setup():
     s = doc.sections[0]
     s.page_width, s.page_height = Cm(21), Cm(29.7)
-    s.left_margin = s.right_margin = Cm(2.2)
+    s.left_margin = s.right_margin = Cm(2.0)
     s.top_margin, s.bottom_margin = Cm(2.1), Cm(1.8)
     s.header_distance, s.footer_distance = Cm(1.0), Cm(0.9)
     st = doc.styles["Normal"]
@@ -391,10 +392,8 @@ def body():
       "the books must still balance. This project builds a working model of such a system: a **fault-tolerant distributed banking system** with three bank servers, each with a hot-standby copy, coordinated by a transaction coordinator. "
       "Everything runs on one computer, but every server is a separate operating-system process with its own TCP port and its own SQLite database.")
     P("The coursework objective is to develop a secure distributed transaction system. We split it into four tasks and show for each one the implementation and the proof from a real run:")
-    B(["**Task 1, simulate multiple bank servers:** three branches with primary and standby, plus a coordinator (Sections 3, 4).",
-       "**Task 2, transaction consistency:** two-phase commit (2PC), write-ahead log, strong versus eventual consistency (Section 5).",
-       "**Task 3, handle deadlock scenarios:** a real deadlock, detection, victim retry and prevention by ordered locking (Section 6).",
-       "**Task 4, apply encryption for transactions:** AES-256-GCM, key exchange at login, replay protection, roles, audit (Section 7)."])
+    P("**Task 1, simulate multiple bank servers** (Sections 3, 4); **Task 2, transaction consistency** with two-phase commit (2PC), a write-ahead log and strong versus eventual consistency (Section 5); "
+      "**Task 3, handle deadlock scenarios** with a real deadlock, detection, victim retry and prevention by ordered locking (Section 6); **Task 4, apply encryption for transactions** with AES-256-GCM, key exchange at login, replay protection, roles and an audit log (Section 7).")
     P("All numbers and screenshots come from the automated demo (demo/run_demo.py, %d checks) and the pytest suite (%d tests). "
       "Short code excerpts are shown where they prove a requirement; the **full source code is in the separate appendix document (CPS304_Group4_SourceCode_Appendix.pdf), in the submission zip and on GitHub: %s**." % (D_CHECKS, PT_PASSED, TEAM["repo"]))
 
@@ -402,33 +401,31 @@ def body():
     P("%s lists every coursework item, the file that implements it and the evidence that proves it." % T("req"), after=2, keep=True)
     TABLE("req", "Coursework requirements, implementation and evidence",
           ["Requirement", "Implemented in", "Evidence"],
-          [["1. Simulate multiple bank servers", "src/branch.py, cluster.py, seed.py", "Figures %d, %d; scenarios 1, 7; test_cluster.py" % (FIGNO["arch"], FIGNO["s0102"])],
-           ["2. Transaction consistency", "src/coordinator.py, wal.py, branch.py", "Figures %d, %d, %d, %d; scenarios 1, 2, 7, 10; test_consistency.py" % (FIGNO["s0102"], FIGNO["flow"], FIGNO["seq"], FIGNO["s10"])],
+          [["1. Simulate multiple bank servers", "src/branch.py, cluster.py, seed.py", "Figure %d; scenarios 1, 7; test_cluster.py" % FIGNO["arch"]],
+           ["2. Transaction consistency", "src/coordinator.py, wal.py, branch.py", "Figures %d, %d; scenarios 1, 2, 7, 10; test_consistency.py" % (FIGNO["flow"], FIGNO["seq"])],
            ["3. Handle deadlock scenarios", "src/locks.py, branch.py", "%s to %s; scenarios 5, 6; test_locks.py, test_deadlock.py" % (F("d2"), F("s0506"))],
            ["4. Apply encryption for transactions", "src/crypto.py, coordinator.py, netproxy.py", "%s to %s; scenarios 8, 9; test_security.py" % (F("crypto"), F("s09"))],
            ["Fault tolerance", "src/branch.py, coordinator.py", "Figures %d, %d; scenarios 3, 4; test_fault_tolerance.py" % (FIGNO["s0304"], FIGNO["fail"])],
-           ["CLI client and web UI", "src/client.py, webui.py, web/index.html", "Figures %d, %d; scenario 11; test_cli.py, test_webui.py" % (FIGNO["ui1"], FIGNO["ui2"])]],
+           ["CLI client and web UI", "src/client.py, webui.py, web/index.html", "Figures %d, %d, %d; scenario 11; test_cli.py, test_webui.py" % (FIGNO["ui2"], FIGNO["ui1"], FIGNO["ui3"])]],
           [4.8, 5.0, 6.4])
 
     H("3 System architecture")
     P("%s shows the architecture. A client talks only to the coordinator, which authenticates the user, checks the role and runs the transaction on the branches. "
       "Each branch has a primary node (A1, B1, C1) and a hot standby (A2, B2, C2) that receives every change of its primary." % F("arch"))
-    FIG("arch")
     H("3.1 Components and tools", 2)
     P("The **coordinator** (src/coordinator.py) is the secure gateway (handshake, login, roles, audit), the 2PC engine, the owner of the durable decision log and the failover manager. "
       "A **branch primary** owns the accounts of its branch, runs the lock manager and the write-ahead log and acts as 2PC participant; a **standby** replays its log, serves optional eventually consistent reads and can be promoted. "
       "The **client** (src/client.py) is a menu-driven program. Accounts are partitioned by branch (B-2001 belongs to Branch B): 12 accounts of D 10,000.00, so the system holds D 120,000.00. Money is an integer number of bututs (1/100 dalasi), so rounding cannot create or destroy money.")
-    P("**Web UI.** src/webui.py is a small local gateway (http.server, one offline HTML page) on 127.0.0.1:8080. It keeps one real encrypted client session per browser login, so the browser never talks to a bank server; the page shows the plain action next to the real hex of the AES-GCM frames (%s, %s)." % (F("ui1"), F("ui2")))
+    P("**Web UI.** src/webui.py is a small local gateway (http.server, one offline HTML page) on 127.0.0.1:8080. It keeps one real encrypted client session per browser login, so the browser never talks to a bank server; the page shows the plain action next to the real hex of the AES-GCM frames (Figures %d, %d, %d)." % (FIGNO["ui2"], FIGNO["ui1"], FIGNO["ui3"]))
     P("**Tools.** Python 3.12 (socket, threading, sqlite3), the cryptography package, SQLite, pytest, Pillow, matplotlib (Graphviz was not installed), Playwright with Chrome for the UI screenshots, python-docx and LibreOffice. Runs on Linux, WSL and Windows.")
 
+    FIG("arch")
     H("4 Server simulation and replication")
     P("The launcher (src/cluster.py) creates the databases, picks free ports and starts seven separate processes. The tests check that there are seven process ids, that every node has its own database file and that the account partitions do not overlap. "
-      "%s (top) shows one transfer: coordinator and branch log lines, the write-ahead logs, and equal balances on primaries and standbys." % F("s0102"))
+      "Scenario 1 (demo/output/01_normal_transfer.txt) shows one transfer: coordinator and branch log lines, the write-ahead logs (PREPARE, COMMIT) and equal balances on primaries and standbys.")
     P("**Replication.** Every change is first written to the write-ahead log (WAL, Section 5.1). The primary then sends all records that the standby has not acknowledged. The standby accepts a record only if its id is the last id plus one; otherwise the primary re-sends the missing records. "
       "Replication is synchronous by default, so a standby always holds every prepared and committed transaction; if the standby is down the primary keeps serving and the standby catches up later (scenario 4). "
       "%s shows the schema; the accounts table has a CHECK (balance >= 0) as a last defence." % F("schema"))
-    FIG("s0102")
-    FIG("schema")
 
     H("5 Transaction consistency")
     H("5.1 Two-phase commit and the write-ahead log", 2)
@@ -437,6 +434,7 @@ def body():
        "**Decision:** if all votes are YES the coordinator writes COMMIT to its durable decision log, otherwise ABORT. This is the commit point and it happens before any phase-2 message (%s)." % L("decision"),
        "**Phase 2:** COMMIT applies the balances, history rows and COMMIT record in one SQLite transaction and releases the locks. All phase-2 messages are idempotent, so they can be repeated.",
        "**Recovery:** an undeliverable decision stays pending and is re-sent every 0.5 s. A restarted participant finds PREPARE records without outcome (in doubt), re-takes their locks and asks the coordinator (unknown transaction: presumed abort)."])
+    FIG("schema")
     FIG("flow")
     CODE("decision", "src/coordinator.py", 'decision = "ABORT" if reason else "COMMIT"', 6, "Coordinator.attempt: the decision is logged before phase 2")
     P("%s is the commit point: the decision is forced to the log first and only then delivered to the participants." % L("decision"), after=2)
@@ -445,14 +443,13 @@ def body():
     H("5.2 ACID properties", 2)
     P("**Atomicity:** all branches apply the transfer or none does (2PC; COMMIT record and balances in one SQLite transaction). **Consistency:** CHECK(balance >= 0), validation at PREPARE and the total-money invariant. "
       "**Isolation:** exclusive account locks from PREPARE to COMMIT/ABORT (strict two-phase locking). **Durability:** PREPARE, COMMIT and the decision are forced to disk before any reply, and a standby holds a copy.")
-    P("In scenario 2 (%s, bottom) a transfer of D 99,999.00 from an account with D 10,000.00 is rejected: Branch A votes NO, the coordinator logs ABORT, no balance changes, no lock is left, and Branch B is never contacted." % F("s0102"))
+    P("In scenario 2 (demo/output/02_insufficient_funds.txt) a transfer of D 99,999.00 from an account with D 10,000.00 is rejected: Branch A votes NO, the coordinator logs ABORT, no balance changes, no lock is left, and Branch B is never contacted.")
     FIG("seq")
     H("5.3 Consistency models: strong and eventual", 2)
     P("**Strong consistency** means that once an operation is confirmed, every later read sees it. **Eventual consistency** only promises that replicas converge if no new updates arrive; meanwhile a read may return an old value. "
       "In our system all writes and the default balance read go through the primary and 2PC (strong). A client may ask for an eventual read, which the standby answers.")
-    P("Scenario 10 is a real example (%s). Replication of Branch A is delayed by 2.0 s and a teller deposits D 500.00 to A-1003 (opening balance D 10,000.00). The strong read from A1 returns D 10,500.00 at log position 2; the eventual read from A2 returns the old D 10,000.00 at position 0, so it is stale. "
-      "After the delay the standby also shows D 10,500.00. The standby read is cheap but can be out of date, so strong reads are needed for any balance that decides a payment." % F("s10"))
-    FIG("s10")
+    P("Scenario 10 (demo/output/10_stale_vs_strong_read.txt) is a real example. Replication of Branch A is delayed by 2.0 s and a teller deposits D 500.00 to A-1003 (opening balance D 10,000.00). The strong read from A1 returns D 10,500.00 at log position 2; the eventual read from A2 returns the old D 10,000.00 at position 0, so it is stale. "
+      "After the delay the standby also shows D 10,500.00. The standby read is cheap but can be out of date, so strong reads are needed for any balance that decides a payment.")
 
     H("6 Deadlock handling")
     H("6.1 The Coffman conditions", 2)
@@ -471,11 +468,11 @@ def body():
     P("%s walks the chain waiter, owner, owner's wait; if it returns to the starting transaction, that is a deadlock." % L("cycle"), after=2)
     P("**Prevention.** With ordered locking on, the coordinator contacts branches in sorted order and each branch sorts the accounts of a transaction (%s), so every transaction asks for locks in the same global order and a circular wait is impossible." % L("ordering"))
     CODE("ordering", "src/branch.py", "accts = []", 10, "Branch.op_prepare: sorted lock acquisition when ordering is on")
-    FIG("d2")
     H("6.3 Results", 2)
     P("In the demo every lock step is slowed by 0.4 s so that the interleaving is repeatable (%s). **5a:** with detection off and a 1.0 s timeout neither transfer can proceed until the timeout fires, which proves a genuine deadlock. "
       "**5b:** with detection on, Branch A finds the cycle, one victim is aborted and retried, and both transfers commit (the second needed 2 attempts), resolved in %s s without the timeout. "
       "**5c:** with accounts on two branches the cycle is invisible to a single branch and is broken by the timeout; both transfers then commit. **6:** with ordered locking the same opposite transfers, inside Branch A and across A and B, commit at the first attempt with 0 deadlocks and 0 timeouts. The total money stayed D 120,000.00 in every case." % (F("s0506"), S5B))
+    FIG("d2")
     FIG("s0506")
 
     H("7 Security")
@@ -485,27 +482,20 @@ def body():
     CODE("password", "src/crypto.py", "def hash_password", 9, "hash_password and verify_password (PBKDF2-HMAC-SHA256 with per-user salt)")
     P("Three roles exist. A **customer** may read the balance and history of, and transfer from, his or her own accounts only; a **teller** may read all accounts, transfer between any accounts and deposit or withdraw cash; the **admin** may open the admin view and change the configuration but may not move money. Every request passes the check in %s, and every decision, allowed or denied, is audited." % L("rbac"), after=2)
     CODE("rbac", "src/coordinator.py", "if op not in PERMS[role]:", 10, "Coordinator.dispatch: role check and account ownership check")
-    P("Scenario 8 (demo/output/08_auth_and_access_control.txt) shows the stored salted hashes, a wrong password, an unknown user, a request before login and six forbidden actions that were all denied (for example a customer reading another customer's balance, a teller opening the admin view, the admin moving money); the permitted actions succeeded in the same run. In the web UI (%s) the same checks appear as a login error and a \'Role denied\' message." % F("ui1"))
-    FIG("ui1")
+    P("Scenario 8 (demo/output/08_auth_and_access_control.txt) shows the stored salted hashes, a wrong password, an unknown user, a request before login and six forbidden actions that were all denied (for example a customer reading another customer's balance, a teller opening the admin view, the admin moving money); the permitted actions succeeded in the same run. In the web UI (%s) the same denial appears as a \'Role denied\' message." % F("ui2"))
     H("7.2 Encryption, replay protection and audit", 2)
     P("Each connection starts with the handshake of %s: both sides exchange fresh X25519 public keys, derive two 256-bit keys with HKDF-SHA256 (one per direction) and from then on every message is one **AES-256-GCM** frame. "
       "The server signs the transcript with an Ed25519 key that the client has pinned, so a fake server is rejected; cluster nodes authenticate each other with an HMAC proof. The password travels only inside the encrypted channel." % F("crypto"))
-    FIG("crypto")
     CODE("gcm", "src/crypto.py", '(seq,) = struct.unpack(">Q", frame[:8])', 9, "SecureConn.recv: GCM decryption (tamper check) and sequence-number replay check")
     P("In %s the nonce is the frame's sequence number. A changed bit fails the GCM tag check (tamper); an old frame has a valid tag but an old sequence number and is refused (replay). In scenario 9 (%s) a man-in-the-middle proxy records all traffic: none of the words alice, the password, TRANSFER, A-1001, BALANCE or amount appears in the captured frames, "
       "and the same request sent twice gives different ciphertext. One flipped bit in a transfer makes the server drop the connection and no money moves; a valid transfer frame delivered twice is executed exactly once." % (L("gcm"), F("s09")))
+    FIG("crypto")
     FIG("s09")
+    FIG("ui2")
     P("**Audit log.** The coordinator writes one audit row for every login, every operation (also denied ones) and every security event (tamper, replay, failover); scenarios 8 and 9 print them.")
 
     H("8 Fault tolerance and recovery")
-    P("We assume crash-stop failures, lost connections, slow nodes and an attacker who can change messages. Failures are injected by killing a process (SIGKILL) and by failpoints that call os._exit at an exact moment of 2PC (like a power cut: nothing is cleaned up). %s summarises the cases." % T("fail"), after=2)
-    TABLE("fail", "Failures, handling and proof", ["Failure", "Reaction", "Proof"],
-          [["Participant crashes after logging PREPARE", "Coordinator gets no vote and aborts; the restarted node finds the in-doubt PREPARE, re-locks, asks the coordinator, gets ABORT", "Scenario 3a"],
-           ["Participant crashes when COMMIT arrives", "Decision is durable; client gets COMMITTED_PENDING; restarted node resolves the transaction as COMMIT", "Scenario 3b"],
-           ["Primary killed between PREPARE and COMMIT", "Coordinator fails over; the promoted standby re-locks the in-doubt transaction and commits it; the old primary later rejoins as standby", "Scenario 4"],
-           ["Node hangs / network timeout", "RPC timeout (4 s) counts as NO vote; transaction aborts; no failover, to avoid two primaries", "test_fault_tolerance"],
-           ["Message tampering or replay", "Frame rejected, connection closed, audit row", "Scenario 9"]],
-          [3.8, 10.2, 2.4])
+    P("We assume crash-stop failures, lost connections, slow nodes and an attacker who can change messages. Failures are injected by killing a process (SIGKILL) and by failpoints that call os._exit at an exact moment of 2PC (like a power cut: nothing is cleaned up). Scenarios 3 and 4 below cover a participant crash, a crash of the primary and the failover; a hung node is treated as a NO vote after the 4 s RPC timeout (test_fault_tolerance.py)." )
     P("%s is the failover logic. After a failed request the coordinator waits 0.2 s, retries once and then promotes the standby (%s); the standby switches its role, re-takes the locks of its in-doubt transactions from the replicated WAL and the request is repeated on the new primary." % (F("fail"), L("failover")))
     CODE("failover", "src/coordinator.py", "def do_failover", 11, "Coordinator.do_failover: promote the standby and update the active node")
     P("**3a** (%s): the crashed Branch B primary had written PREPARE only; after the restart its log shows PREPARE then ABORT, its locks are free and both balances are unchanged. **3b:** the debit is applied but the credit is missing, so the visible total is D 119,900.00 for a moment; the money is not lost, it is the committed transfer waiting for the recovering node, and the total is D 120,000.00 again after the restart. "
@@ -517,8 +507,9 @@ def body():
     P("The demo runs eleven scenarios on fresh clusters and checks its own results: **%d checks, %d passed, %d failed**. The pytest suite has **%d tests, %d passed, %d failed** (%s)." % (D_CHECKS, D_PASS, D_FAIL, PT_PASSED + PT_FAILED, PT_PASSED, PT_FAILED, PT_TIME), after=2)
     P("**Money invariant.** Scenario 7 sends %d random transfers (60 normal ones of D 1.00 to D 200.00 between random accounts of all branches and 5 deliberately oversized ones) from 8 parallel sessions (demo/output/07_concurrent_transfers.txt). "
       "%s committed and %s aborted for insufficient funds (exactly the 5 oversized ones) in %s s; the total money was D 120,000.00 before and after, on primaries and standbys, no balance became negative and no lock remained. "
-      "Scenario 11 drives the menu-driven client with scripted keystrokes (wrong password, balance, transfer of D 75.50, eventual read, history, denied actions); all screenshots, including the real-browser UI shots of %s, are in the folder screenshots/." % (int(S7_C) + int(S7_A), S7_C, S7_A, S7_T, F("ui2")))
-    FIG("ui2")
+      "Scenario 11 drives the menu-driven client with scripted keystrokes (wrong password, balance, transfer of D 75.50, eventual read, history, denied actions); all screenshots are in the folder screenshots/. The web UI was tested in a real browser: %s shows a committed transfer next to the real encrypted frames, and %s the admin view after the Branch B primary was killed (B1 DOWN, B2 promoted, failover in the audit log)." % (int(S7_C) + int(S7_A), S7_C, S7_A, S7_T, F("ui1"), F("ui3")))
+    FIG("ui1")
+    FIG("ui3")
 
     H("10 Limitations and future work")
     B(["**Coordinator is a single point of failure:** its log is durable, but while it is down in-doubt participants stay blocked (2PC blocking). A replicated coordinator (Paxos/Raft) or three-phase commit would remove this.",

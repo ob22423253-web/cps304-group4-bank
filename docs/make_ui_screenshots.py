@@ -30,8 +30,8 @@ def main():
         url = "http://127.0.0.1:%d/" % srv.server_address[1]
         with sync_playwright() as p:
             b = p.chromium.launch(executable_path=browser_path(), headless=True, args=["--no-sandbox"])
-            pg = b.new_page(viewport={"width": 1280, "height": 760}, device_scale_factor=1.5)
-            shot = lambda name: pg.screenshot(path=os.path.join(OUT, name))
+            pg = b.new_page(viewport={"width": 1100, "height": 750}, device_scale_factor=2)
+            shot = lambda name: pg.screenshot(path=os.path.join(OUT, name), full_page=True)
 
             pg.goto(url)
             pg.fill("#u", "alice"); pg.fill("#p", "wrong-password"); pg.click("#go")
@@ -42,7 +42,6 @@ def main():
             pg.wait_for_function("document.getElementById('bal').textContent.startsWith('D')")
             pg.fill("#to", "B-2001"); pg.fill("#amt", "250.00"); pg.click("#bTr")
             pg.wait_for_function("document.getElementById('msg').textContent.includes('COMMITTED')", timeout=30000)
-            pg.wait_for_function("document.querySelectorAll('#hist tr').length>1")
             shot("ui_02_customer_transfer_committed.png")
 
             pg.fill("#amt", "99999.00"); pg.click("#bTr")

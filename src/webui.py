@@ -40,7 +40,7 @@ class RecSock:
         return getattr(self._s, name)
 
 
-def hexdump(b, limit=48):
+def hexdump(b, limit=36):
     h = b[:limit].hex()
     h = " ".join(h[i:i + 2] for i in range(0, len(h), 2))
     return "%s%s  (%d bytes)" % (h, " ..." if len(b) > limit else "", len(b))
@@ -105,7 +105,7 @@ class Gateway:
             if op == "BALANCE":
                 kw["consistency"] = "eventual" if body.get("consistency") == "eventual" else "strong"
             if op == "ADMIN_VIEW":
-                kw["n"] = 12
+                kw["n"] = 6
             return self.call(sess, op, **kw)
         except ValueError:
             return {"ok": False, "error": "invalid amount (use e.g. 100 or 100.50)"}, None
