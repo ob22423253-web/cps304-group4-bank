@@ -1,0 +1,414 @@
+==============================================================================
+SCENARIO 1 - Normal cross-branch transfer (2PC commit): A-1001 (Branch A) -> B-2001 (Branch B), D 250.00
+==============================================================================
+
+>>> Initial state (primary DBs)
+    A-1001=D 10,000.00   B-2001=D 10,000.00
+    system total = D 120,000.00
+
+>>> Teller transfers D 250.00 over the encrypted channel
+    reply: {'ok': True, 'txid': 'T000001', 'status': 'COMMITTED', 'attempts': 1}
+
+>>> Coordinator log (2PC phases)
+    log| [COORD] T000001 BEGIN participants=['A', 'B'] (request order)
+    log| [COORD] T000001 branch A voted YES
+    log| [COORD] T000001 branch B voted YES
+    log| [COORD] T000001 DECISION COMMIT logged (participants ['A', 'B'])
+
+>>> Participant logs
+    log| [A1:primary] PREPARE T000001: locking ['A-1001'] (request order)
+    log| [A1:primary] PREPARE T000001: PREPARE record forced to WAL, vote YES
+    log| [A1:primary] COMMIT T000001 applied, locks released
+    log| [B1:primary] PREPARE T000001: locking ['B-2001'] (request order)
+    log| [B1:primary] PREPARE T000001: PREPARE record forced to WAL, vote YES
+    log| [B1:primary] COMMIT T000001 applied, locks released
+
+>>> Write-ahead logs on the primaries (id, txid, record)
+    A1: [(1, 'T000001', 'PREPARE'), (2, 'T000001', 'COMMIT')]
+    B1: [(1, 'T000001', 'PREPARE'), (2, 'T000001', 'COMMIT')]
+
+>>> Final state
+    primaries: A-1001=D 9,750.00   B-2001=D 10,250.00
+    standbys : A-1001=D 9,750.00   B-2001=D 10,250.00
+    system total = D 120,000.00
+  [PASS] transaction committed on both branches
+  [PASS] debit and credit both applied (D 9,750.00 / D 10,250.00)
+  [PASS] total money unchanged (D 120,000.00)
+  [PASS] hot standbys hold identical balances (replication)
+
+==============================================================================
+SCENARIO 2 - Insufficient funds: 2PC aborts, nothing changes
+==============================================================================
+
+>>> Teller tries to move D 99,999.00 from A-1001 (balance D 10,000.00) to B-2001
+    reply: {'ok': False, 'txid': 'T000001', 'status': 'ABORTED', 'attempts': 1, 'error': 'insufficient funds in A-1001'}
+    log| [COORD] T000001 BEGIN participants=['A', 'B'] (request order)
+    log| [COORD] T000001 branch A voted NO: insufficient funds in A-1001
+    log| [COORD] T000001 DECISION ABORT logged (participants ['A'])
+    log| [A1:primary] PREPARE T000001: locking ['A-1001'] (request order)
+    log| [A1:primary] PREPARE T000001: insufficient funds on A-1001 -> vote NO
+    log| [A1:primary] ABORT T000001 recorded, locks released
+
+>>> State after the abort
+    A1 WAL: [(1, 'T000001', 'ABORT')]   B1 WAL: []
+    locks held on A1: {}
+  [PASS] transaction aborted with reason: insufficient funds in A-1001
+  [PASS] every balance on every branch is unchanged
+  [PASS] no locks left behind
+  [PASS] Branch B never even prepared (sequential prepare stopped at the first NO vote)
+  [PASS] total money unchanged
+
+==============================================================================
+SCENARIO 3 - Participant crashes during 2PC and recovers from its write-ahead log
+==============================================================================
+
+>>> 3a) Branch B primary crashes right AFTER forcing its PREPARE record (before replying to the coordinator)
+    coordinator reply: {'ok': False, 'txid': 'T000001', 'status': 'ABORTED', 'attempts': 1, 'error': 'branch B unreachable'}
+    B1 process alive? False
+    B1 WAL on disk: [(1, 'T000001', 'PREPARE')]  -> PREPARE without COMMIT/ABORT = IN DOUBT
+
+>>> Restarting B1 (it only has its disk: SQLite + WAL)
+    log| [B1:primary] RECOVERY: tx T000001 is IN DOUBT (PREPARE logged, no outcome) - locks ['B-2001'] re-acquired
+    B1 WAL after recovery: [(1, 'T000001', 'PREPARE'), (2, 'T000001', 'ABORT')]
+  [PASS] coordinator aborted the transfer (no vote from B1)
+  [PASS] in-doubt transaction resolved as ABORT after asking the coordinator
+  [PASS] balances unchanged on both branches
+  [PASS] locks of the in-doubt transaction released
+
+>>> 3b) Branch B primary crashes when the COMMIT message arrives (decision is already COMMIT)
+    coordinator reply: {'ok': True, 'txid': 'T000002', 'status': 'COMMITTED_PENDING', 'attempts': 1}  (decision durable, B1 not yet updated)
+    A: A-1001=D 9,900.00
+    B1 DB (dead node, read from disk): B-2001 = D 10,000.00   <- credit not applied yet
+    total money visible right now = D 119,900.00 (money is 'in flight', not lost)
+
+>>> After restart
+    log| [B1:primary] PREPARE T000002: locking ['B-2001'] (request order)
+    log| [B1:primary] PREPARE T000002: PREPARE record forced to WAL, vote YES
+    log| [B1:primary] RECOVERY: tx T000002 is IN DOUBT (PREPARE logged, no outcome) - locks ['B-2001'] re-acquired
+    log| [B1:primary] COMMIT T000002 applied, locks released
+    A-1001=D 9,900.00   B-2001=D 10,100.00
+  [PASS] client told COMMITTED_PENDING (outcome is final, delivery pending)
+  [PASS] recovered B1 applied the COMMIT from its WAL decision
+  [PASS] total money unchanged after recovery
+
+==============================================================================
+SCENARIO 4 - Primary killed between PREPARE and COMMIT: coordinator fails over to the hot standby
+==============================================================================
+
+>>> Transfer D 300.00 A-1001 -> B-2001; coordinator pauses 1.5 s after logging COMMIT so we can kill B1 in the window
+    B1 WAL now: [(1, 'T000001', 'PREPARE')] (B1 voted YES and is PREPARED)
+    B2 (standby) WAL now: [(1, 'T000001', 'PREPARE')] (PREPARE already replicated)
+    >>> kill -9 B1 (process.kill)
+    client reply: {'ok': True, 'txid': 'T000001', 'status': 'COMMITTED', 'attempts': 1}
+
+>>> Coordinator and standby logs
+    log| [COORD] T000001 BEGIN participants=['A', 'B'] (request order)
+    log| [COORD] T000001 branch A voted YES
+    log| [COORD] T000001 branch B voted YES
+    log| [COORD] T000001 DECISION COMMIT logged (participants ['A', 'B'])
+    log| [COORD] FAILOVER branch B: B1 unreachable -> promoting standby B2
+    log| [COORD] FAILOVER branch B complete: B2 is now primary (in-doubt there: ['T000001'])
+    log| [B2:primary] PROMOTED to primary (WAL up to id 1)
+    log| [B2:primary] RECOVERY: tx T000001 is IN DOUBT (PREPARE logged, no outcome) - locks ['B-2001'] re-acquired
+    log| [B2:primary] COMMIT T000001 applied, locks released
+    active node per branch: {'A': 'A1', 'B': 'B2', 'C': 'C1'}
+    state: A-1001=D 9,700.00   B-2001=D 10,300.00
+    system total (active nodes) = D 120,000.00
+
+>>> Service continues on the new primary; old primary B1 is restarted as a standby and catches up
+    deposit D 5.00 to B-2002 on B2: COMMITTED
+    B1 (rejoined) balances == B2: True | B1 WAL: [(1, 'T000001', 'PREPARE'), (2, 'T000001', 'COMMIT'), (3, 'T000002', 'PREPARE'), (4, 'T000002', 'COMMIT'), (5, 'T000003', 'PREPARE'), (6, 'T000003', 'COMMIT')]
+  [PASS] transfer committed although a participant primary was killed mid-transaction
+  [PASS] coordinator switched Branch B to the standby
+  [PASS] debit and credit both applied exactly once
+  [PASS] total money unchanged
+  [PASS] restarted old primary re-synchronised from the new primary
+
+==============================================================================
+SCENARIO 5 - Deadlock WITHOUT lock ordering: real deadlock, detection, victim abort, retry
+==============================================================================
+T1: transfer A-1001 -> A-1002 locks A-1001 then A-1002.  T2: transfer A-1002 -> A-1001 locks A-1002 then A-1001.
+Lock-ordering is OFF; each lock step is slowed by 0.4 s so both transactions hold their first lock (the classic interleaving).
+
+>>> 5a) Wait-for-graph detection switched OFF, lock timeout 1.0 s, no retries -> the deadlock is real
+    T1 result: ABORTED lock timeout
+    T2 result: COMMITTED 
+    log| [A1:primary] LOCK TIMEOUT: T000001 gave up waiting for A-1002 held by T000002
+  [PASS] neither transaction could proceed until the lock timeout fired (>= 1.0 s): a genuine deadlock
+  [PASS] no detection ran (as configured)
+
+>>> 5b) Wait-for-graph detection ON (timeout stays as safety net), victim is retried automatically
+    T1 result: COMMITTED after 1 attempt(s)
+    T2 result: COMMITTED after 2 attempt(s)
+
+>>> Branch A log (wait-for graph and victim selection)
+    log| [A1:primary] DEADLOCK detected (wait-for cycle T000004->T000003 -> T000004): T000004 waits for A-1001 held by T000003; T000003 waits for A-1002 held by T000004 | victim = T000004
+    log| [A1:primary] PREPARE T000004: aborted as deadlock victim -> vote NO
+
+>>> Coordinator log (abort + retry of the victim)
+    log| [COORD] T000004 branch A voted NO: deadlock victim
+    log| [COORD] T000004 aborted (deadlock victim) -> retry 1 after 0.14s backoff
+    deadlocks detected by A1: 1, resolved in 2.3 s (not a timeout)
+  [PASS] wait-for-graph cycle detected
+  [PASS] victim aborted and retried; both transfers finally committed
+  [PASS] opposite equal transfers cancel out: balances back to start
+  [PASS] total money unchanged
+
+>>> 5c) Cross-branch deadlock (A-1001 -> B-2001 against B-2001 -> A-1001): cycle spans two nodes, broken by lock timeout
+    T1 result: COMMITTED after 2 attempt(s)
+    T2 result: COMMITTED after 1 attempt(s)
+    log| [B1:primary] LOCK TIMEOUT: T000006 gave up waiting for B-2001 held by T000007
+  [PASS] both transfers committed after the timeout victim was retried
+  [PASS] total money unchanged
+
+==============================================================================
+SCENARIO 6 - Same opposite transfers WITH ordered locking: deadlock prevented
+==============================================================================
+Ordered locking ON: every transaction takes account locks in sorted account-id order (and the coordinator contacts branches in sorted order).
+
+>>> Run the same two opposite transfers as scenario 5
+    T1 result: COMMITTED after 1 attempt(s)
+    T2 result: COMMITTED after 1 attempt(s)
+    log| [A1:primary] PREPARE T000001: locking ['A-1001', 'A-1002'] (sorted order)
+    log| [A1:primary] PREPARE T000002: locking ['A-1001', 'A-1002'] (sorted order)
+    log| [A1:primary] PREPARE T000001: PREPARE record forced to WAL, vote YES
+    log| [A1:primary] PREPARE T000002: PREPARE record forced to WAL, vote YES
+    deadlocks detected: 0, lock timeouts: 0
+
+>>> Cross-branch version (A-1001 <-> B-2001)
+    T1 result: COMMITTED after 1 attempt(s)
+    T2 result: COMMITTED after 1 attempt(s)
+  [PASS] all four transfers committed at the first attempt (no abort, no retry)
+  [PASS] no deadlock and no timeout happened: circular wait was made impossible
+  [PASS] total money unchanged
+
+==============================================================================
+SCENARIO 7 - 65 concurrent random transfers from 8 client connections: total money invariant
+==============================================================================
+    requests: 65 (8 parallel sessions), accounts: 12, total money before = D 120,000.00
+    finished in 8.4 s -> committed: 60, aborted: 5 (reasons: ['insufficient funds'])
+
+>>> Money check
+    branch A total: D 39,622.96
+    branch B total: D 40,000.79
+    branch C total: D 40,376.25
+    total after (primaries) = D 120,000.00   total after (standbys) = D 120,000.00
+    lowest single balance = D 9,461.69
+    coordinator stats: {'committed': 60, 'aborted': 6, 'retries': 1, 'failovers': 0}
+  [PASS] all 65 requests answered
+  [PASS] TOTAL MONEY INVARIANT HOLDS: D 120,000.00 before = D 120,000.00 after
+  [PASS] standby replicas hold the same total
+  [PASS] no account is negative
+  [PASS] exactly the 5 oversized transfers were aborted (insufficient funds)
+  [PASS] no in-doubt transactions and no leftover locks
+
+==============================================================================
+SCENARIO 8 - Authentication (PBKDF2), wrong password, role-based access control, audit log
+==============================================================================
+
+>>> Password storage (coordinator DB, table users) - no plaintext, per-user salt
+    alice    customer  PBKDF2-HMAC-SHA256 x30000  salt=912625300ae4...  hash=b5dc5c496e5d6d43...
+    bob      customer  PBKDF2-HMAC-SHA256 x30000  salt=da45195037c7...  hash=288baf8445fd5dc0...
+    carol    customer  PBKDF2-HMAC-SHA256 x30000  salt=c947d65115fe...  hash=1d76b498cd61d3bd...
+    dave     customer  PBKDF2-HMAC-SHA256 x30000  salt=e96ca6f81cbf...  hash=88e09b07720ac9e6...
+    teller1  teller    PBKDF2-HMAC-SHA256 x30000  salt=c5629772a861...  hash=3f9088b23b8519ce...
+    admin    admin     PBKDF2-HMAC-SHA256 x30000  salt=94eb84628a3f...  hash=d41a36b60b92b0e1...
+
+>>> Login attempts
+    alice / wrong password  -> {'ok': False, 'error': 'invalid username or password', 'close': False}
+    unknown user            -> {'ok': False, 'error': 'invalid username or password', 'close': False}
+    request before login    -> {'ok': False, 'error': 'login required'}
+
+>>> Role checks
+    alice (customer) logged in, accounts: ['A-1001', 'B-2001', 'C-3001']
+    alice reads her own A-1001             -> OK balance=D 10,000.00
+    alice reads bob's A-1002               -> access denied: account belongs to another customer
+    alice deposits cash                    -> access denied: role 'customer' may not perform DEPOSIT
+    alice transfers from bob's account     -> access denied: account belongs to another customer
+    alice opens admin view                 -> access denied: role 'customer' may not perform ADMIN_VIEW
+    alice transfers from her own account   -> COMMITTED
+    teller deposits cash to A-1002         -> COMMITTED
+    teller opens admin view                -> access denied: role 'teller' may not perform ADMIN_VIEW
+    admin opens admin view                 -> OK
+    admin tries to move money              -> access denied: role 'admin' may not perform TRANSFER
+
+>>> Audit log (as returned by the admin view)
+    #1   alice    -         LOGIN      FAILED    bad credentials
+    #2   mallory  -         LOGIN      FAILED    bad credentials
+    #3   -        -         BALANCE    DENIED    not logged in
+    #4   alice    customer  LOGIN      OK        session established
+    #5   alice    customer  BALANCE    OK        {"acct": "A-1001"}
+    #6   alice    customer  BALANCE    DENIED    account not owned: ['A-1002']
+    #7   alice    customer  DEPOSIT    DENIED    {"acct": "A-1001", "amount": 100}
+    #8   alice    customer  TRANSFER   DENIED    account not owned: ['A-1002']
+    #9   alice    customer  ADMIN_VIEW DENIED    {}
+    #10  alice    customer  TRANSFER   COMMITTED {"src": "A-1001", "dst": "A-1002", "amount": 100} 
+    #11  teller1  teller    LOGIN      OK        session established
+    #12  teller1  teller    DEPOSIT    COMMITTED {"acct": "A-1002", "amount": 100} -> T000002
+    #13  teller1  teller    ADMIN_VIEW DENIED    {}
+    #14  admin    admin     LOGIN      OK        session established
+    #15  admin    admin     ADMIN_VIEW OK        {}
+    #16  admin    admin     TRANSFER   DENIED    {"src": "A-1001", "dst": "A-1002", "amount": 1}
+  [PASS] wrong password and unknown user rejected with the same message
+  [PASS] no operation possible before login
+  [PASS] 6 forbidden actions were denied: alice reads bob's A-1002; alice deposits cash; alice transfers from bob's account; alice opens admin view; teller opens admin view; admin tries to move money
+  [PASS] permitted actions succeeded
+
+==============================================================================
+SCENARIO 9 - AES-256-GCM on the wire: captured ciphertext, tampering rejected, replay rejected
+==============================================================================
+
+>>> An eavesdropping proxy sits between client and server and records every byte
+    plaintext of frame 1 : {"op":"LOGIN","user":"alice","password":"Alice#2026"}
+    on the wire, frame 1 : 0000000000000001e28614a4f3c4466b27af0f38ee69d9183ac09c8d377ce2decc243ad3ce8eea1c...
+    plaintext of frame 2 : {"op":"TRANSFER","src":"A-1001","dst":"A-1002","amount":100}
+    on the wire, frame 2 : 00000000000000024263543023375f9bd673711ef4656bb14e1903304f028e0ca4c6bb7194187035...
+    server reply, frame 1: 0000000000000001beab117f8986d03b99912987c4dd80a5a1cecbee58dd7cca84c85a7f6cfdadcf...
+    frame layout: 8-byte sequence number | AES-256-GCM ciphertext | 16-byte tag   (frame 1 is 77 bytes)
+    client hello (frame 0) carries only the ephemeral X25519 public key: 43505331cdf86e8ef5c91ae7f88e3866aef1038a181a7f71...
+    captured 10 frames, 814 bytes; searching for ['alice', 'Alice#2026', 'password', 'TRANSFER', 'A-1001', 'BALANCE', 'amount'] -> found: nothing
+    the identical request 'BALANCE A-1001' sent twice produced different ciphertext: True
+  [PASS] no plaintext word (user name, password, account, operation) appears in the captured traffic
+  [PASS] identical messages encrypt differently (unique nonce per message)
+
+>>> Tampering: the proxy flips ONE bit of the TRANSFER frame in flight
+    client side: request failed (ConnectionClosed)
+    log| [COORD] SECURITY TAMPER from user=alice: GCM authentication tag mismatch (message modified) - connection dropped
+  [PASS] modified message rejected by the GCM tag check, no money moved
+
+>>> Replay: the proxy delivers a copy of a captured, valid TRANSFER frame a second time
+    transfer reply: COMMITTED
+    log| [COORD] SECURITY REPLAY from user=alice: sequence 2 received, expected 3 (replay/reorder) - connection dropped
+    A-1001 balance change: -D 50.00 (one transfer of D 50.00 expected, not two)
+  [PASS] replayed frame rejected (sequence number already used): transfer executed exactly once
+
+>>> Audit trail of the security events
+    #6 alice SECURITY: TAMPER detected: GCM authentication tag mismatch (message modified) -> REJECTED
+    #9 alice SECURITY: REPLAY detected: sequence 2 received, expected 3 (replay/reorder) -> REJECTED
+  [PASS] total money unchanged
+
+==============================================================================
+SCENARIO 10 - Strong read (primary) vs eventually consistent read (lagging standby)
+==============================================================================
+Replication to the standby of Branch A is slowed by 2.0 s (injected lag). Account A-1003 starts at D 10,000.00.
+
+>>> t = 0.0 s: teller deposits D 500.00 to A-1003
+    deposit: COMMITTED
+    strong read   from A1 (primary): D 10,500.00  [WAL position 2]
+    eventual read from A2 (standby): D 10,000.00  [WAL position 0]   <-- STALE
+
+>>> t = 2.6 s: replication has arrived
+    eventual read from A2 (standby): D 10,500.00  [WAL position 2]
+  [PASS] strong read returns the committed value immediately
+  [PASS] standby read was briefly stale (older WAL position)
+  [PASS] standby converged to the primary value (eventual consistency)
+    Note: all writes still go through 2PC on the primary; only READS from the standby are eventually consistent.
+
+==============================================================================
+SCENARIO 11 - Menu-driven CLI client (scripted keystrokes)
+==============================================================================
+
+>>> Session 1: customer alice (one wrong password first)
+=== UTG Microfinance Unit - Secure Banking Client ===
+Username: alice
+Password: ****
+  ! invalid username or password
+Username: alice
+Password: **********
+Logged in as alice (role: customer). Your accounts: A-1001, B-2001, C-3001
+Session is protected by AES-256-GCM (key agreed with X25519 at login).
+
+  1) Balance            2) Deposit (teller)     3) Withdraw (teller)
+  4) Transfer           5) History              6) Admin view (admin)
+  7) Quit
+
+Choice> 1
+Account: A-1001
+Read from (s)trong primary / (e)ventual replica [s]: s
+  Balance of A-1001: D 10,000.00  [strong read from node A1, WAL position 0]
+
+  1) Balance            2) Deposit (teller)     3) Withdraw (teller)
+  4) Transfer           5) History              6) Admin view (admin)
+  7) Quit
+
+Choice> 4
+From account: A-1001
+To account: C-3001
+Amount (D): 75.50
+  COMMITTED (tx T000001, attempts 1)
+
+  1) Balance            2) Deposit (teller)     3) Withdraw (teller)
+  4) Transfer           5) History              6) Admin view (admin)
+  7) Quit
+
+Choice> 1
+Account: C-3001
+Read from (s)trong primary / (e)ventual replica [s]: e
+  Balance of C-3001: D 10,075.50  [eventual read from node C2, WAL position 2]
+
+  1) Balance            2) Deposit (teller)     3) Withdraw (teller)
+  4) Transfer           5) History              6) Admin view (admin)
+  7) Quit
+
+Choice> 5
+Account: A-1001
+  T000001      -D 75.50  balance   D 9,924.50  transfer to C-3001
+
+  1) Balance            2) Deposit (teller)     3) Withdraw (teller)
+  4) Transfer           5) History              6) Admin view (admin)
+  7) Quit
+
+Choice> 2
+Account: A-1001
+Amount (D): 10
+  ! access denied: role 'customer' may not perform DEPOSIT
+
+  1) Balance            2) Deposit (teller)     3) Withdraw (teller)
+  4) Transfer           5) History              6) Admin view (admin)
+  7) Quit
+
+Choice> 6
+  ! access denied: role 'customer' may not perform ADMIN_VIEW
+
+  1) Balance            2) Deposit (teller)     3) Withdraw (teller)
+  4) Transfer           5) History              6) Admin view (admin)
+  7) Quit
+
+Choice> 7
+Goodbye.
+
+>>> Session 2: admin
+=== UTG Microfinance Unit - Secure Banking Client ===
+Username: admin
+Password: **********
+Logged in as admin (role: admin). Your accounts: -
+Session is protected by AES-256-GCM (key agreed with X25519 at login).
+
+  1) Balance            2) Deposit (teller)     3) Withdraw (teller)
+  4) Transfer           5) History              6) Admin view (admin)
+  7) Quit
+
+Choice> 6
+  System total: D 120,000.00   active nodes: {'A': 'A1', 'B': 'B1', 'C': 'C1'}
+   node A1 role=primary wal=2
+   node A2 role=backup wal=2
+   node B1 role=primary wal=0
+   node B2 role=backup wal=0
+   node C1 role=primary wal=2
+   node C2 role=backup wal=2
+   audit #4 alice    customer  TRANSFER   COMMITTED
+   audit #5 alice    customer  BALANCE    OK
+   audit #6 alice    customer  HISTORY    OK
+   audit #7 alice    customer  DEPOSIT    DENIED
+   audit #8 alice    customer  ADMIN_VIEW DENIED
+   audit #9 admin    admin     LOGIN      OK
+
+  1) Balance            2) Deposit (teller)     3) Withdraw (teller)
+  4) Transfer           5) History              6) Admin view (admin)
+  7) Quit
+
+Choice> 7
+Goodbye.
+  [PASS] CLI transfer of D 75.50 was applied
+
+DEMO SUMMARY: 51 checks, 51 passed, 0 failed

@@ -1,0 +1,32 @@
+==============================================================================
+SCENARIO 4 - Primary killed between PREPARE and COMMIT: coordinator fails over to the hot standby
+==============================================================================
+
+>>> Transfer D 300.00 A-1001 -> B-2001; coordinator pauses 1.5 s after logging COMMIT so we can kill B1 in the window
+    B1 WAL now: [(1, 'T000001', 'PREPARE')] (B1 voted YES and is PREPARED)
+    B2 (standby) WAL now: [(1, 'T000001', 'PREPARE')] (PREPARE already replicated)
+    >>> kill -9 B1 (process.kill)
+    client reply: {'ok': True, 'txid': 'T000001', 'status': 'COMMITTED', 'attempts': 1}
+
+>>> Coordinator and standby logs
+    log| [COORD] T000001 BEGIN participants=['A', 'B'] (request order)
+    log| [COORD] T000001 branch A voted YES
+    log| [COORD] T000001 branch B voted YES
+    log| [COORD] T000001 DECISION COMMIT logged (participants ['A', 'B'])
+    log| [COORD] FAILOVER branch B: B1 unreachable -> promoting standby B2
+    log| [COORD] FAILOVER branch B complete: B2 is now primary (in-doubt there: ['T000001'])
+    log| [B2:primary] PROMOTED to primary (WAL up to id 1)
+    log| [B2:primary] RECOVERY: tx T000001 is IN DOUBT (PREPARE logged, no outcome) - locks ['B-2001'] re-acquired
+    log| [B2:primary] COMMIT T000001 applied, locks released
+    active node per branch: {'A': 'A1', 'B': 'B2', 'C': 'C1'}
+    state: A-1001=D 9,700.00   B-2001=D 10,300.00
+    system total (active nodes) = D 120,000.00
+
+>>> Service continues on the new primary; old primary B1 is restarted as a standby and catches up
+    deposit D 5.00 to B-2002 on B2: COMMITTED
+    B1 (rejoined) balances == B2: True | B1 WAL: [(1, 'T000001', 'PREPARE'), (2, 'T000001', 'COMMIT'), (3, 'T000002', 'PREPARE'), (4, 'T000002', 'COMMIT'), (5, 'T000003', 'PREPARE'), (6, 'T000003', 'COMMIT')]
+  [PASS] transfer committed although a participant primary was killed mid-transaction
+  [PASS] coordinator switched Branch B to the standby
+  [PASS] debit and credit both applied exactly once
+  [PASS] total money unchanged
+  [PASS] restarted old primary re-synchronised from the new primary

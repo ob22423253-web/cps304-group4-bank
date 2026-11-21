@@ -1,0 +1,51 @@
+==============================================================================
+SCENARIO 8 - Authentication (PBKDF2), wrong password, role-based access control, audit log
+==============================================================================
+
+>>> Password storage (coordinator DB, table users) - no plaintext, per-user salt
+    alice    customer  PBKDF2-HMAC-SHA256 x30000  salt=912625300ae4...  hash=b5dc5c496e5d6d43...
+    bob      customer  PBKDF2-HMAC-SHA256 x30000  salt=da45195037c7...  hash=288baf8445fd5dc0...
+    carol    customer  PBKDF2-HMAC-SHA256 x30000  salt=c947d65115fe...  hash=1d76b498cd61d3bd...
+    dave     customer  PBKDF2-HMAC-SHA256 x30000  salt=e96ca6f81cbf...  hash=88e09b07720ac9e6...
+    teller1  teller    PBKDF2-HMAC-SHA256 x30000  salt=c5629772a861...  hash=3f9088b23b8519ce...
+    admin    admin     PBKDF2-HMAC-SHA256 x30000  salt=94eb84628a3f...  hash=d41a36b60b92b0e1...
+
+>>> Login attempts
+    alice / wrong password  -> {'ok': False, 'error': 'invalid username or password', 'close': False}
+    unknown user            -> {'ok': False, 'error': 'invalid username or password', 'close': False}
+    request before login    -> {'ok': False, 'error': 'login required'}
+
+>>> Role checks
+    alice (customer) logged in, accounts: ['A-1001', 'B-2001', 'C-3001']
+    alice reads her own A-1001             -> OK balance=D 10,000.00
+    alice reads bob's A-1002               -> access denied: account belongs to another customer
+    alice deposits cash                    -> access denied: role 'customer' may not perform DEPOSIT
+    alice transfers from bob's account     -> access denied: account belongs to another customer
+    alice opens admin view                 -> access denied: role 'customer' may not perform ADMIN_VIEW
+    alice transfers from her own account   -> COMMITTED
+    teller deposits cash to A-1002         -> COMMITTED
+    teller opens admin view                -> access denied: role 'teller' may not perform ADMIN_VIEW
+    admin opens admin view                 -> OK
+    admin tries to move money              -> access denied: role 'admin' may not perform TRANSFER
+
+>>> Audit log (as returned by the admin view)
+    #1   alice    -         LOGIN      FAILED    bad credentials
+    #2   mallory  -         LOGIN      FAILED    bad credentials
+    #3   -        -         BALANCE    DENIED    not logged in
+    #4   alice    customer  LOGIN      OK        session established
+    #5   alice    customer  BALANCE    OK        {"acct": "A-1001"}
+    #6   alice    customer  BALANCE    DENIED    account not owned: ['A-1002']
+    #7   alice    customer  DEPOSIT    DENIED    {"acct": "A-1001", "amount": 100}
+    #8   alice    customer  TRANSFER   DENIED    account not owned: ['A-1002']
+    #9   alice    customer  ADMIN_VIEW DENIED    {}
+    #10  alice    customer  TRANSFER   COMMITTED {"src": "A-1001", "dst": "A-1002", "amount": 100} 
+    #11  teller1  teller    LOGIN      OK        session established
+    #12  teller1  teller    DEPOSIT    COMMITTED {"acct": "A-1002", "amount": 100} -> T000002
+    #13  teller1  teller    ADMIN_VIEW DENIED    {}
+    #14  admin    admin     LOGIN      OK        session established
+    #15  admin    admin     ADMIN_VIEW OK        {}
+    #16  admin    admin     TRANSFER   DENIED    {"src": "A-1001", "dst": "A-1002", "amount": 1}
+  [PASS] wrong password and unknown user rejected with the same message
+  [PASS] no operation possible before login
+  [PASS] 6 forbidden actions were denied: alice reads bob's A-1002; alice deposits cash; alice transfers from bob's account; alice opens admin view; teller opens admin view; admin tries to move money
+  [PASS] permitted actions succeeded

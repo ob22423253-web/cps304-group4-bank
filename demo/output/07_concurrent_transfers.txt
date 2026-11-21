@@ -1,0 +1,19 @@
+==============================================================================
+SCENARIO 7 - 65 concurrent random transfers from 8 client connections: total money invariant
+==============================================================================
+    requests: 65 (8 parallel sessions), accounts: 12, total money before = D 120,000.00
+    finished in 8.4 s -> committed: 60, aborted: 5 (reasons: ['insufficient funds'])
+
+>>> Money check
+    branch A total: D 39,622.96
+    branch B total: D 40,000.79
+    branch C total: D 40,376.25
+    total after (primaries) = D 120,000.00   total after (standbys) = D 120,000.00
+    lowest single balance = D 9,461.69
+    coordinator stats: {'committed': 60, 'aborted': 6, 'retries': 1, 'failovers': 0}
+  [PASS] all 65 requests answered
+  [PASS] TOTAL MONEY INVARIANT HOLDS: D 120,000.00 before = D 120,000.00 after
+  [PASS] standby replicas hold the same total
+  [PASS] no account is negative
+  [PASS] exactly the 5 oversized transfers were aborted (insufficient funds)
+  [PASS] no in-doubt transactions and no leftover locks

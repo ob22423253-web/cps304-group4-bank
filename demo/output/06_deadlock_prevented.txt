@@ -1,0 +1,20 @@
+==============================================================================
+SCENARIO 6 - Same opposite transfers WITH ordered locking: deadlock prevented
+==============================================================================
+Ordered locking ON: every transaction takes account locks in sorted account-id order (and the coordinator contacts branches in sorted order).
+
+>>> Run the same two opposite transfers as scenario 5
+    T1 result: COMMITTED after 1 attempt(s)
+    T2 result: COMMITTED after 1 attempt(s)
+    log| [A1:primary] PREPARE T000001: locking ['A-1001', 'A-1002'] (sorted order)
+    log| [A1:primary] PREPARE T000002: locking ['A-1001', 'A-1002'] (sorted order)
+    log| [A1:primary] PREPARE T000001: PREPARE record forced to WAL, vote YES
+    log| [A1:primary] PREPARE T000002: PREPARE record forced to WAL, vote YES
+    deadlocks detected: 0, lock timeouts: 0
+
+>>> Cross-branch version (A-1001 <-> B-2001)
+    T1 result: COMMITTED after 1 attempt(s)
+    T2 result: COMMITTED after 1 attempt(s)
+  [PASS] all four transfers committed at the first attempt (no abort, no retry)
+  [PASS] no deadlock and no timeout happened: circular wait was made impossible
+  [PASS] total money unchanged

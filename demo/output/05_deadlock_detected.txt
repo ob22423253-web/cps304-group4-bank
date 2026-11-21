@@ -1,0 +1,36 @@
+==============================================================================
+SCENARIO 5 - Deadlock WITHOUT lock ordering: real deadlock, detection, victim abort, retry
+==============================================================================
+T1: transfer A-1001 -> A-1002 locks A-1001 then A-1002.  T2: transfer A-1002 -> A-1001 locks A-1002 then A-1001.
+Lock-ordering is OFF; each lock step is slowed by 0.4 s so both transactions hold their first lock (the classic interleaving).
+
+>>> 5a) Wait-for-graph detection switched OFF, lock timeout 1.0 s, no retries -> the deadlock is real
+    T1 result: ABORTED lock timeout
+    T2 result: COMMITTED 
+    log| [A1:primary] LOCK TIMEOUT: T000001 gave up waiting for A-1002 held by T000002
+  [PASS] neither transaction could proceed until the lock timeout fired (>= 1.0 s): a genuine deadlock
+  [PASS] no detection ran (as configured)
+
+>>> 5b) Wait-for-graph detection ON (timeout stays as safety net), victim is retried automatically
+    T1 result: COMMITTED after 1 attempt(s)
+    T2 result: COMMITTED after 2 attempt(s)
+
+>>> Branch A log (wait-for graph and victim selection)
+    log| [A1:primary] DEADLOCK detected (wait-for cycle T000004->T000003 -> T000004): T000004 waits for A-1001 held by T000003; T000003 waits for A-1002 held by T000004 | victim = T000004
+    log| [A1:primary] PREPARE T000004: aborted as deadlock victim -> vote NO
+
+>>> Coordinator log (abort + retry of the victim)
+    log| [COORD] T000004 branch A voted NO: deadlock victim
+    log| [COORD] T000004 aborted (deadlock victim) -> retry 1 after 0.14s backoff
+    deadlocks detected by A1: 1, resolved in 2.3 s (not a timeout)
+  [PASS] wait-for-graph cycle detected
+  [PASS] victim aborted and retried; both transfers finally committed
+  [PASS] opposite equal transfers cancel out: balances back to start
+  [PASS] total money unchanged
+
+>>> 5c) Cross-branch deadlock (A-1001 -> B-2001 against B-2001 -> A-1001): cycle spans two nodes, broken by lock timeout
+    T1 result: COMMITTED after 2 attempt(s)
+    T2 result: COMMITTED after 1 attempt(s)
+    log| [B1:primary] LOCK TIMEOUT: T000006 gave up waiting for B-2001 held by T000007
+  [PASS] both transfers committed after the timeout victim was retried
+  [PASS] total money unchanged

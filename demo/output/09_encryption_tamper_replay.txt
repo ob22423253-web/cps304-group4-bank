@@ -1,0 +1,32 @@
+==============================================================================
+SCENARIO 9 - AES-256-GCM on the wire: captured ciphertext, tampering rejected, replay rejected
+==============================================================================
+
+>>> An eavesdropping proxy sits between client and server and records every byte
+    plaintext of frame 1 : {"op":"LOGIN","user":"alice","password":"Alice#2026"}
+    on the wire, frame 1 : 0000000000000001e28614a4f3c4466b27af0f38ee69d9183ac09c8d377ce2decc243ad3ce8eea1c...
+    plaintext of frame 2 : {"op":"TRANSFER","src":"A-1001","dst":"A-1002","amount":100}
+    on the wire, frame 2 : 00000000000000024263543023375f9bd673711ef4656bb14e1903304f028e0ca4c6bb7194187035...
+    server reply, frame 1: 0000000000000001beab117f8986d03b99912987c4dd80a5a1cecbee58dd7cca84c85a7f6cfdadcf...
+    frame layout: 8-byte sequence number | AES-256-GCM ciphertext | 16-byte tag   (frame 1 is 77 bytes)
+    client hello (frame 0) carries only the ephemeral X25519 public key: 43505331cdf86e8ef5c91ae7f88e3866aef1038a181a7f71...
+    captured 10 frames, 814 bytes; searching for ['alice', 'Alice#2026', 'password', 'TRANSFER', 'A-1001', 'BALANCE', 'amount'] -> found: nothing
+    the identical request 'BALANCE A-1001' sent twice produced different ciphertext: True
+  [PASS] no plaintext word (user name, password, account, operation) appears in the captured traffic
+  [PASS] identical messages encrypt differently (unique nonce per message)
+
+>>> Tampering: the proxy flips ONE bit of the TRANSFER frame in flight
+    client side: request failed (ConnectionClosed)
+    log| [COORD] SECURITY TAMPER from user=alice: GCM authentication tag mismatch (message modified) - connection dropped
+  [PASS] modified message rejected by the GCM tag check, no money moved
+
+>>> Replay: the proxy delivers a copy of a captured, valid TRANSFER frame a second time
+    transfer reply: COMMITTED
+    log| [COORD] SECURITY REPLAY from user=alice: sequence 2 received, expected 3 (replay/reorder) - connection dropped
+    A-1001 balance change: -D 50.00 (one transfer of D 50.00 expected, not two)
+  [PASS] replayed frame rejected (sequence number already used): transfer executed exactly once
+
+>>> Audit trail of the security events
+    #6 alice SECURITY: TAMPER detected: GCM authentication tag mismatch (message modified) -> REJECTED
+    #9 alice SECURITY: REPLAY detected: sequence 2 received, expected 3 (replay/reorder) -> REJECTED
+  [PASS] total money unchanged

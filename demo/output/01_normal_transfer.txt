@@ -1,0 +1,37 @@
+==============================================================================
+SCENARIO 1 - Normal cross-branch transfer (2PC commit): A-1001 (Branch A) -> B-2001 (Branch B), D 250.00
+==============================================================================
+
+>>> Initial state (primary DBs)
+    A-1001=D 10,000.00   B-2001=D 10,000.00
+    system total = D 120,000.00
+
+>>> Teller transfers D 250.00 over the encrypted channel
+    reply: {'ok': True, 'txid': 'T000001', 'status': 'COMMITTED', 'attempts': 1}
+
+>>> Coordinator log (2PC phases)
+    log| [COORD] T000001 BEGIN participants=['A', 'B'] (request order)
+    log| [COORD] T000001 branch A voted YES
+    log| [COORD] T000001 branch B voted YES
+    log| [COORD] T000001 DECISION COMMIT logged (participants ['A', 'B'])
+
+>>> Participant logs
+    log| [A1:primary] PREPARE T000001: locking ['A-1001'] (request order)
+    log| [A1:primary] PREPARE T000001: PREPARE record forced to WAL, vote YES
+    log| [A1:primary] COMMIT T000001 applied, locks released
+    log| [B1:primary] PREPARE T000001: locking ['B-2001'] (request order)
+    log| [B1:primary] PREPARE T000001: PREPARE record forced to WAL, vote YES
+    log| [B1:primary] COMMIT T000001 applied, locks released
+
+>>> Write-ahead logs on the primaries (id, txid, record)
+    A1: [(1, 'T000001', 'PREPARE'), (2, 'T000001', 'COMMIT')]
+    B1: [(1, 'T000001', 'PREPARE'), (2, 'T000001', 'COMMIT')]
+
+>>> Final state
+    primaries: A-1001=D 9,750.00   B-2001=D 10,250.00
+    standbys : A-1001=D 9,750.00   B-2001=D 10,250.00
+    system total = D 120,000.00
+  [PASS] transaction committed on both branches
+  [PASS] debit and credit both applied (D 9,750.00 / D 10,250.00)
+  [PASS] total money unchanged (D 120,000.00)
+  [PASS] hot standbys hold identical balances (replication)

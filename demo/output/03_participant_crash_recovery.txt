@@ -1,0 +1,32 @@
+==============================================================================
+SCENARIO 3 - Participant crashes during 2PC and recovers from its write-ahead log
+==============================================================================
+
+>>> 3a) Branch B primary crashes right AFTER forcing its PREPARE record (before replying to the coordinator)
+    coordinator reply: {'ok': False, 'txid': 'T000001', 'status': 'ABORTED', 'attempts': 1, 'error': 'branch B unreachable'}
+    B1 process alive? False
+    B1 WAL on disk: [(1, 'T000001', 'PREPARE')]  -> PREPARE without COMMIT/ABORT = IN DOUBT
+
+>>> Restarting B1 (it only has its disk: SQLite + WAL)
+    log| [B1:primary] RECOVERY: tx T000001 is IN DOUBT (PREPARE logged, no outcome) - locks ['B-2001'] re-acquired
+    B1 WAL after recovery: [(1, 'T000001', 'PREPARE'), (2, 'T000001', 'ABORT')]
+  [PASS] coordinator aborted the transfer (no vote from B1)
+  [PASS] in-doubt transaction resolved as ABORT after asking the coordinator
+  [PASS] balances unchanged on both branches
+  [PASS] locks of the in-doubt transaction released
+
+>>> 3b) Branch B primary crashes when the COMMIT message arrives (decision is already COMMIT)
+    coordinator reply: {'ok': True, 'txid': 'T000002', 'status': 'COMMITTED_PENDING', 'attempts': 1}  (decision durable, B1 not yet updated)
+    A: A-1001=D 9,900.00
+    B1 DB (dead node, read from disk): B-2001 = D 10,000.00   <- credit not applied yet
+    total money visible right now = D 119,900.00 (money is 'in flight', not lost)
+
+>>> After restart
+    log| [B1:primary] PREPARE T000002: locking ['B-2001'] (request order)
+    log| [B1:primary] PREPARE T000002: PREPARE record forced to WAL, vote YES
+    log| [B1:primary] RECOVERY: tx T000002 is IN DOUBT (PREPARE logged, no outcome) - locks ['B-2001'] re-acquired
+    log| [B1:primary] COMMIT T000002 applied, locks released
+    A-1001=D 9,900.00   B-2001=D 10,100.00
+  [PASS] client told COMMITTED_PENDING (outcome is final, delivery pending)
+  [PASS] recovered B1 applied the COMMIT from its WAL decision
+  [PASS] total money unchanged after recovery

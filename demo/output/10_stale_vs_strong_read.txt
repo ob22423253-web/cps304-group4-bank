@@ -1,0 +1,16 @@
+==============================================================================
+SCENARIO 10 - Strong read (primary) vs eventually consistent read (lagging standby)
+==============================================================================
+Replication to the standby of Branch A is slowed by 2.0 s (injected lag). Account A-1003 starts at D 10,000.00.
+
+>>> t = 0.0 s: teller deposits D 500.00 to A-1003
+    deposit: COMMITTED
+    strong read   from A1 (primary): D 10,500.00  [WAL position 2]
+    eventual read from A2 (standby): D 10,000.00  [WAL position 0]   <-- STALE
+
+>>> t = 2.6 s: replication has arrived
+    eventual read from A2 (standby): D 10,500.00  [WAL position 2]
+  [PASS] strong read returns the committed value immediately
+  [PASS] standby read was briefly stale (older WAL position)
+  [PASS] standby converged to the primary value (eventual consistency)
+    Note: all writes still go through 2PC on the primary; only READS from the standby are eventually consistent.

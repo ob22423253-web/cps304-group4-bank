@@ -1,0 +1,106 @@
+==============================================================================
+SCENARIO 11 - Menu-driven CLI client (scripted keystrokes)
+==============================================================================
+
+>>> Session 1: customer alice (one wrong password first)
+=== UTG Microfinance Unit - Secure Banking Client ===
+Username: alice
+Password: ****
+  ! invalid username or password
+Username: alice
+Password: **********
+Logged in as alice (role: customer). Your accounts: A-1001, B-2001, C-3001
+Session is protected by AES-256-GCM (key agreed with X25519 at login).
+
+  1) Balance            2) Deposit (teller)     3) Withdraw (teller)
+  4) Transfer           5) History              6) Admin view (admin)
+  7) Quit
+
+Choice> 1
+Account: A-1001
+Read from (s)trong primary / (e)ventual replica [s]: s
+  Balance of A-1001: D 10,000.00  [strong read from node A1, WAL position 0]
+
+  1) Balance            2) Deposit (teller)     3) Withdraw (teller)
+  4) Transfer           5) History              6) Admin view (admin)
+  7) Quit
+
+Choice> 4
+From account: A-1001
+To account: C-3001
+Amount (D): 75.50
+  COMMITTED (tx T000001, attempts 1)
+
+  1) Balance            2) Deposit (teller)     3) Withdraw (teller)
+  4) Transfer           5) History              6) Admin view (admin)
+  7) Quit
+
+Choice> 1
+Account: C-3001
+Read from (s)trong primary / (e)ventual replica [s]: e
+  Balance of C-3001: D 10,075.50  [eventual read from node C2, WAL position 2]
+
+  1) Balance            2) Deposit (teller)     3) Withdraw (teller)
+  4) Transfer           5) History              6) Admin view (admin)
+  7) Quit
+
+Choice> 5
+Account: A-1001
+  T000001      -D 75.50  balance   D 9,924.50  transfer to C-3001
+
+  1) Balance            2) Deposit (teller)     3) Withdraw (teller)
+  4) Transfer           5) History              6) Admin view (admin)
+  7) Quit
+
+Choice> 2
+Account: A-1001
+Amount (D): 10
+  ! access denied: role 'customer' may not perform DEPOSIT
+
+  1) Balance            2) Deposit (teller)     3) Withdraw (teller)
+  4) Transfer           5) History              6) Admin view (admin)
+  7) Quit
+
+Choice> 6
+  ! access denied: role 'customer' may not perform ADMIN_VIEW
+
+  1) Balance            2) Deposit (teller)     3) Withdraw (teller)
+  4) Transfer           5) History              6) Admin view (admin)
+  7) Quit
+
+Choice> 7
+Goodbye.
+
+>>> Session 2: admin
+=== UTG Microfinance Unit - Secure Banking Client ===
+Username: admin
+Password: **********
+Logged in as admin (role: admin). Your accounts: -
+Session is protected by AES-256-GCM (key agreed with X25519 at login).
+
+  1) Balance            2) Deposit (teller)     3) Withdraw (teller)
+  4) Transfer           5) History              6) Admin view (admin)
+  7) Quit
+
+Choice> 6
+  System total: D 120,000.00   active nodes: {'A': 'A1', 'B': 'B1', 'C': 'C1'}
+   node A1 role=primary wal=2
+   node A2 role=backup wal=2
+   node B1 role=primary wal=0
+   node B2 role=backup wal=0
+   node C1 role=primary wal=2
+   node C2 role=backup wal=2
+   audit #4 alice    customer  TRANSFER   COMMITTED
+   audit #5 alice    customer  BALANCE    OK
+   audit #6 alice    customer  HISTORY    OK
+   audit #7 alice    customer  DEPOSIT    DENIED
+   audit #8 alice    customer  ADMIN_VIEW DENIED
+   audit #9 admin    admin     LOGIN      OK
+
+  1) Balance            2) Deposit (teller)     3) Withdraw (teller)
+  4) Transfer           5) History              6) Admin view (admin)
+  7) Quit
+
+Choice> 7
+Goodbye.
+  [PASS] CLI transfer of D 75.50 was applied
