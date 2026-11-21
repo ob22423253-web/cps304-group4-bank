@@ -1,0 +1,6 @@
+cryptography>=41
+pytest>=8
+# report/diagram/screenshot tooling (not needed to run the system):
+python-docx
+matplotlib
+Pillow

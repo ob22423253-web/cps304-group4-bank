@@ -1,0 +1,17 @@
+# virtual environments
+venv/
+.venv/
+env/
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+# runtime data
+run/
+*.db
+*.db-wal
+*.db-shm
+*.log
+*.err
+# build output that is delivered as a zip
+*.zip
