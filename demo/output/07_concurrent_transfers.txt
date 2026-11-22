@@ -2,7 +2,7 @@
 SCENARIO 7 - 65 concurrent random transfers from 8 client connections: total money invariant
 ==============================================================================
     requests: 65 (8 parallel sessions), accounts: 12, total money before = D 120,000.00
-    finished in 8.1 s -> committed: 60, aborted: 5 (reasons: ['insufficient funds'])
+    finished in 9.3 s -> committed: 60, aborted: 5 (reasons: ['insufficient funds'])
 
 >>> Money check
     branch A total: D 39,622.96

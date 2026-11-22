@@ -22,7 +22,7 @@ Lock-ordering is OFF; each lock step is slowed by 0.4 s so both transactions hol
 >>> Coordinator log (abort + retry of the victim)
     log| [COORD] T000004 branch A voted NO: deadlock victim
     log| [COORD] T000004 aborted (deadlock victim) -> retry 1 after 0.14s backoff
-    deadlocks detected by A1: 1, resolved in 2.3 s (not a timeout)
+    deadlocks detected by A1: 1, resolved in 2.4 s (not a timeout)
   [PASS] wait-for-graph cycle detected
   [PASS] victim aborted and retried; both transfers finally committed
   [PASS] opposite equal transfers cancel out: balances back to start

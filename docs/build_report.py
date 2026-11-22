@@ -64,19 +64,19 @@ FIGWIDTH = {"arch": 16.2, "schema": 11.0, "flow": 9.5, "seq": 14.5, "d2": 8.5, "
             "s0304": 16.0, "ui1": 14.6, "ui2": 14.6, "ui3": 14.6, "s09": 16.0, "s10": 11.5}
 CAPTION = {
     "arch": "System architecture: one coordinator and three branches, each with a primary and a hot standby",
-    "s0102": "Scenario 1 (normal transfer, 2PC commit) and scenario 2 (insufficient funds, abort): real output, shortened",
+    "s0102": "Scenario 1 (normal transfer, 2PC commit) and scenario 2 (insufficient funds, abort): real output (excerpt of demo/output/01_normal_transfer.txt and 02_insufficient_funds.txt; long lines shortened, full output in the repository)",
     "schema": "Database schema of the coordinator database and of every branch database",
     "flow": "Two-phase commit flowchart", "seq": "2PC message sequence with a crash of the Branch B primary and failover",
-    "s10": "Scenario 10: strong read from the primary and stale read from the lagging standby",
+    "s10": "Scenario 10: strong read from the primary and stale read from the lagging standby (excerpt of demo/output/10_stale_vs_strong_read.txt; long lines shortened, full output in the repository)",
     "d2": "Deadlock detection (wait-for graph, victim, timeout) and prevention (ordered locking)",
-    "s0506": "Scenarios 5 and 6: real deadlock detected and resolved, and the same transfers with ordered locking",
+    "s0506": "Scenarios 5 and 6: real deadlock detected and resolved, and the same transfers with ordered locking (excerpt of demo/output/05_deadlock_detected.txt and 06_deadlock_prevented.txt; long lines shortened, full output in the repository)",
     "crypto": "Login handshake, session keys and AES-256-GCM frame format",
-    "ui2": "Web UI (real browser): \'Role denied\' when a customer tries a teller deposit; the panel on the right shows the plain action and the real encrypted frames",
-    "ui1": "Web UI (real browser), customer view: transfer committed, with the plain action and the real AES-256-GCM frames on the right",
-    "s09": "Scenario 9: captured ciphertext, tampered and replayed messages rejected",
+    "ui2": "Web UI (real browser): \'Role denied\' when a customer tries a teller deposit; right panel shows the real encrypted frames",
+    "ui1": "Web UI (real browser), customer view: transfer committed, with the real AES-256-GCM frames on the right",
+    "s09": "Scenario 9: captured ciphertext, tampered and replayed messages rejected (excerpt of demo/output/09_encryption_tamper_replay.txt; long lines shortened, full output in the repository)",
     "fail": "Replication (WAL shipping) and failover flow",
-    "s0304": "Scenarios 3 and 4: participant crash and WAL recovery, primary killed and failover",
-    "ui3": "Web UI (real browser), admin view after the Branch B primary was killed: B1 DOWN, B2 promoted, failover in the audit log"}
+    "s0304": "Scenarios 3 and 4: participant crash and WAL recovery, primary killed and failover (excerpt of demo/output/03_participant_crash_recovery.txt and 04_primary_failover.txt; long lines shortened, full output in the repository)",
+    "ui3": "Web UI (real browser), admin view after the Branch B primary was killed: B2 promoted, failover audited"}
 
 doc = None
 HEADINGS = []
@@ -520,23 +520,22 @@ def body():
     H("11 Conclusion")
     P("We built a distributed banking system with three bank servers and their hot standbys, coordinated by a transaction coordinator, and proved each coursework task by running it. "
       "Two-phase commit with a write-ahead log kept all %d concurrent transfers consistent and the total money constant. Deadlocks were produced for real, detected with a wait-for graph, resolved by a victim abort and prevented by ordered locking. "
-      "Every message is protected with AES-256-GCM and replay protection, and users by salted PBKDF2 hashes, roles and an audit log. "
+      "Messages are protected with AES-256-GCM, users with salted PBKDF2 hashes, roles and an audit log. "
       "A killed primary was replaced by its standby in the middle of a transaction and a crashed participant recovered from its log, without losing or creating money. "
-      "The complete source code is in the separate appendix (CPS304_Group4_SourceCode_Appendix.pdf) and in the submission zip." % (int(S7_C) + int(S7_A)))
+      "The full source code is in the separate appendix and the submission zip." % (int(S7_C) + int(S7_A)))
 
     H("References", 1)
     refs = ["Tanenbaum, A. S. and Van Steen, M. (2017) Distributed Systems: Principles and Paradigms, 3rd edn. Pearson.",
-            "Coulouris, G., Dollimore, J., Kindberg, T. and Blair, G. (2012) Distributed Systems: Concepts and Design, 5th edn. Addison-Wesley.",
+            "Coulouris, G. et al. (2012) Distributed Systems: Concepts and Design, 5th edn. Addison-Wesley.",
             "Silberschatz, A., Galvin, P. B. and Gagne, G. (2018) Operating System Concepts, 10th edn. Wiley.",
-            "Coffman, E. G., Elphick, M. J. and Shoshani, A. (1971) 'System deadlocks', ACM Computing Surveys, 3(2), pp. 67-78.",
-            "Dworkin, M. (2007) Recommendation for Block Cipher Modes of Operation: Galois/Counter Mode (GCM) and GMAC. NIST Special Publication 800-38D.",
-            "Moriarty, K., Kaliski, B. and Rusch, A. (2017) PKCS #5: Password-Based Cryptography Specification Version 2.1. RFC 8018. IETF.",
-            "Langley, A., Hamburg, M. and Turner, S. (2016) Elliptic Curves for Security (X25519). RFC 7748; Josefsson, S. and Liusvaara, I. (2017) EdDSA (Ed25519). RFC 8032; Krawczyk, H. and Eronen, P. (2010) HKDF. RFC 5869. IETF."]
+            "Gray, J. and Reuter, A. (1993) Transaction Processing: Concepts and Techniques. Morgan Kaufmann.",
+            "Coffman, E. G. et al. (1971) 'System deadlocks', ACM Computing Surveys, 3(2), pp. 67-78.",
+            "Dworkin, M. (2007) NIST SP 800-38D (AES-GCM); IETF RFC 8018 (PBKDF2), RFC 7748 (X25519), RFC 8032 (Ed25519), RFC 5869 (HKDF)."]
     for r in refs:
         p = doc.add_paragraph()
         p.paragraph_format.left_indent = Cm(0.8); p.paragraph_format.first_line_indent = Cm(-0.8)
-        p.paragraph_format.space_after = Pt(2); p.paragraph_format.line_spacing = 1.05
-        add_runs(p, r, 9)
+        p.paragraph_format.space_after = Pt(1); p.paragraph_format.line_spacing = 1.0
+        add_runs(p, r, 8.5)
 
 
 def page_break():
