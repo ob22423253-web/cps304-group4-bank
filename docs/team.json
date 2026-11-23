@@ -1,25 +1,24 @@
 {
-  "faculty": "[FACULTY OR SCHOOL NAME]",
-  "lecturer": "[LECTURER NAME]",
+  "lecturer": "Dr. Murtala Muhammad",
   "members": [
     [
-      "[NAME 1]",
-      "22223122",
+      "Ousman Bah",
+      "22423253",
       "Group Leader"
     ],
     [
-      "[NAME 2]",
+      "Alasana Bayo",
+      "22223122",
+      "Member"
+    ],
+    [
+      "Bubacarr Konjira",
       "22516009",
       "Member"
     ],
     [
-      "[NAME 3]",
+      "",
       "22516018",
-      "Member"
-    ],
-    [
-      "[NAME 4]",
-      "22423253",
       "Member"
     ]
   ],

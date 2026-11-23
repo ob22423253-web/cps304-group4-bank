@@ -1,14 +1,14 @@
 # Fault-Tolerant Distributed Banking System for the UTG Microfinance Unit
 
 **CPS 304 Operating System II** - University of The Gambia - 1st semester 2026 - Practical coursework (30 marks) - Group 4
-Submission date: 24 November 2026 - Lecturer: [LECTURER NAME] - Faculty/School: [FACULTY OR SCHOOL NAME]
+Submission date: 24 November 2026 - Lecturer: Dr. Murtala Muhammad
 
 | Matric number | Name | Role |
 |---|---|---|
-| 22223122 | [NAME 1] | Group Leader |
-| 22516009 | [NAME 2] | Member |
-| 22516018 | [NAME 3] | Member |
-| 22423253 | [NAME 4] | Member |
+| 22423253 | Ousman Bah | Group Leader |
+| 22223122 | Alasana Bayo | Member |
+| 22516009 | Bubacarr Konjira | Member |
+| 22516018 |  | Member |
 
 Repository: https://github.com/ob22423253-web/cps304-group4-bank
 

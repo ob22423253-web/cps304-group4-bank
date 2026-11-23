@@ -319,7 +319,7 @@ def centered(text, size, bold=False, after=6, color=None, before=0):
 
 
 def cover():
-    band(NAVYHEX, [("UNIVERSITY OF THE GAMBIA", 26, True, (255, 255, 255)), (TEAM["faculty"], 12, False, (214, 226, 242))], 4.2)
+    band(NAVYHEX, [("UNIVERSITY OF THE GAMBIA", 26, True, (255, 255, 255))], 4.2)
     band("C9A227", [("", 3, False, (0, 0, 0))], 0.35)
     centered("CPS 304 - OPERATING SYSTEM II", 17, True, 2, NAVY, before=30)
     centered("Practical Coursework (30 marks)  |  1st Semester 2026", 11.5, False, 40, RGBColor(0x40, 0x40, 0x40))
